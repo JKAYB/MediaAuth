@@ -1,0 +1,42 @@
+$kind: http-request
+name: POST Login
+description: Authenticate with email and password. Returns a JWT token valid for 24 hours. The test script automatically saves the token to the {{authToken}} environment variable.
+method: POST
+url: "{{baseUrl}}/auth/login"
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: json
+  content: |-
+    {
+      "email": "test@test.com",
+      "password": "123456"
+    }
+events:
+  - listen: test
+    script: |-
+      const json = pm.response.json();
+      if (json.token) {
+        pm.environment.set("authToken", json.token);
+        console.log("authToken saved to environment");
+      }
+      pm.test("Status is 200", () => {
+        pm.response.to.have.status(200);
+      });
+      pm.test("Response contains token", () => {
+        pm.expect(json).to.have.property("token");
+      });
+responses:
+  - name: '200 OK'
+    status: 200
+    body: |-
+      {
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      }
+  - name: '401 Unauthorized'
+    status: 401
+    body: |-
+      {
+        "error": "Invalid credentials"
+      }

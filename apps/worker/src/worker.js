@@ -8,22 +8,73 @@ function clamp(num, min, max) {
   return Math.max(min, Math.min(max, num));
 }
 
+async function markProcessing(scanId) {
+  await pool.query(
+    "UPDATE scans SET status = 'processing', updated_at = NOW() WHERE id = $1",
+    [scanId]
+  );
+}
+
+async function markCompleted({ scanId, confidence, isAiGenerated, resultPayload }) {
+  await pool.query(
+    `UPDATE scans
+     SET is_ai_generated = $1,
+         confidence = $2,
+         result_payload = $3,
+         error_message = NULL,
+         status = 'completed',
+         updated_at = NOW(),
+         completed_at = NOW()
+     WHERE id = $4`,
+    [isAiGenerated, confidence, resultPayload, scanId]
+  );
+}
+
+async function markFailed({ scanId, errorMessage }) {
+  await pool.query(
+    `UPDATE scans
+     SET status = 'failed',
+         error_message = $1,
+         updated_at = NOW(),
+         completed_at = NOW()
+     WHERE id = $2`,
+    [errorMessage, scanId]
+  );
+}
+
 function startWorker() {
   const worker = new Worker(
     "scan-jobs",
     async (job) => {
       const { scanId } = job.data;
+      await markProcessing(scanId);
 
-      const mock = mockScan(job.data);
-      const hive = await hiveScan(job.data);
+      try {
+        const mock = mockScan(job.data);
+        const hive = await hiveScan(job.data);
 
-      const confidence = clamp(mock.confidence + hive.confidenceAdjustment, 0, 100);
-      const isAiGenerated = confidence >= 50;
+        const confidence = clamp(mock.confidence + hive.confidenceAdjustment, 0, 100);
+        const isAiGenerated = confidence >= 50;
+        const resultPayload = {
+          processors: {
+            mock,
+            hive
+          }
+        };
 
-      await pool.query(
-        "UPDATE scans SET is_ai_generated = $1, confidence = $2, status = 'completed', completed_at = NOW() WHERE id = $3",
-        [isAiGenerated, confidence, scanId]
-      );
+        await markCompleted({
+          scanId,
+          confidence,
+          isAiGenerated,
+          resultPayload
+        });
+      } catch (error) {
+        await markFailed({
+          scanId,
+          errorMessage: error.message || "Unexpected worker error"
+        });
+        throw error;
+      }
     },
     {
       connection,

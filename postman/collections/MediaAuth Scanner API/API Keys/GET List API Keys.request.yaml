@@ -1,0 +1,33 @@
+$kind: http-request
+name: 'GET List API Keys'
+description: 'List all API keys belonging to the authenticated user. Requires a valid JWT bearer token.'
+method: GET
+url: '{{baseUrl}}/auth/apikeys'
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{authToken}}'
+headers:
+  - key: Accept
+    value: application/json
+responses:
+  - name: '200 OK'
+    status: 200
+    body: |-
+      {
+        "data": [
+          {
+            "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "name": "My Key",
+            "key_value": "mak_...",
+            "created_at": "2026-01-01T00:00:00.000Z"
+          }
+        ]
+      }
+  - name: '401 Unauthorized'
+    status: 401
+    body: |-
+      {
+        "error": "Authentication required"
+      }

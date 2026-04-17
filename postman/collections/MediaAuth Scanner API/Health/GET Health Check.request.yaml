@@ -1,0 +1,15 @@
+$kind: http-request
+name: 'GET Health Check'
+description: 'Returns the health status of the API server. No authentication required.'
+method: GET
+url: '{{baseUrl}}/health'
+headers:
+  - key: Accept
+    value: application/json
+responses:
+  - name: '200 OK'
+    status: 200
+    body: |-
+      {
+        "ok": true
+      }

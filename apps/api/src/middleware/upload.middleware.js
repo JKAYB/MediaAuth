@@ -22,4 +22,23 @@ const upload = multer({
   }
 });
 
-module.exports = { upload };
+function normalizeUploadError(error, _req, _res, next) {
+  if (!error) {
+    return next();
+  }
+
+  if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
+    error.status = 413;
+    error.message = "File too large. Max size is 20MB";
+    return next(error);
+  }
+
+  if (error.message === "Unsupported file type") {
+    error.status = 400;
+    return next(error);
+  }
+
+  return next(error);
+}
+
+module.exports = { upload, normalizeUploadError };

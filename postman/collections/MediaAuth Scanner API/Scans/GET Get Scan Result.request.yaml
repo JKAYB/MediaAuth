@@ -1,0 +1,56 @@
+$kind: http-request
+name: 'GET Get Scan Result'
+description: |-
+  Retrieve the result of a specific scan by its ID. Uses the {{scanId}} variable — run POST Submit Scan first or set it manually.
+
+  Authentication: Bearer JWT token OR x-api-key header.
+
+  Poll this endpoint until status is "completed" or "failed".
+method: GET
+url: '{{baseUrl}}/scan/{{scanId}}'
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{authToken}}'
+headers:
+  - key: x-api-key
+    value: '{{apiKey}}'
+    disabled: true
+  - key: Accept
+    value: application/json
+responses:
+  - name: '200 OK – Completed'
+    status: 200
+    body: |-
+      {
+        "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "status": "completed",
+        "confidence": 0.97,
+        "is_ai_generated": true,
+        "created_at": "2026-01-01T00:00:00.000Z",
+        "completed_at": "2026-01-01T00:00:05.000Z"
+      }
+  - name: '200 OK – Queued'
+    status: 200
+    body: |-
+      {
+        "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "status": "queued",
+        "confidence": null,
+        "is_ai_generated": null,
+        "created_at": "2026-01-01T00:00:00.000Z",
+        "completed_at": null
+      }
+  - name: '404 Not Found'
+    status: 404
+    body: |-
+      {
+        "error": "Scan not found"
+      }
+  - name: '401 Unauthorized'
+    status: 401
+    body: |-
+      {
+        "error": "Authentication required"
+      }

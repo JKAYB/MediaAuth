@@ -1,0 +1,23 @@
+$kind: http-request
+name: 'DELETE Delete API Key'
+description: 'Delete an API key by its ID. Requires JWT authentication. Uses the {{apiKeyId}} variable — run POST Create API Key first or set it manually.'
+method: DELETE
+url: '{{baseUrl}}/auth/apikeys/{{apiKeyId}}'
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{authToken}}'
+headers:
+  - key: Accept
+    value: application/json
+responses:
+  - name: '204 No Content'
+    status: 204
+    body: ''
+  - name: '401 Unauthorized'
+    status: 401
+    body: |-
+      {
+        "error": "Authentication required"
+      }

@@ -89,4 +89,21 @@ async function deleteApiKey(req, res, next) {
   }
 }
 
-module.exports = { signup, login, listApiKeys, createApiKey, deleteApiKey };
+async function getMe(req, res, next) {
+  try {
+    let email = req.user.email;
+    if (!email) {
+      const { rows } = await pool.query("SELECT id, email FROM users WHERE id = $1 LIMIT 1", [req.user.id]);
+      const row = rows[0];
+      if (!row) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      email = row.email;
+    }
+    return res.json({ id: req.user.id, email });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+module.exports = { signup, login, listApiKeys, createApiKey, deleteApiKey, getMe };

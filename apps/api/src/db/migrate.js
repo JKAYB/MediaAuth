@@ -1,9 +1,8 @@
 const path = require("path");
 
 require("dotenv").config({
-  path: path.resolve(process.cwd(), ".env")
+  path: path.resolve(__dirname, "../../../../.env")
 });
-console.log("ENV CHECK:", process.env.DATABASE_URL);
 
 const { pool } = require("./pool");
 
@@ -33,12 +32,42 @@ async function runMigrations() {
       user_id UUID REFERENCES users(id) ON DELETE SET NULL,
       filename TEXT NOT NULL,
       mime_type TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'queued',
+      file_size_bytes BIGINT NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'pending',
       confidence NUMERIC(5, 2),
       is_ai_generated BOOLEAN,
+      result_payload JSONB,
+      error_message TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       completed_at TIMESTAMPTZ
     );
+  `);
+
+  // One ALTER per column — safer on existing DBs than a single multi-add statement.
+  await pool.query(
+    `ALTER TABLE scans ADD COLUMN IF NOT EXISTS file_size_bytes BIGINT NOT NULL DEFAULT 0`
+  );
+  await pool.query(`ALTER TABLE scans ADD COLUMN IF NOT EXISTS result_payload JSONB`);
+  await pool.query(`ALTER TABLE scans ADD COLUMN IF NOT EXISTS error_message TEXT`);
+  await pool.query(
+    `ALTER TABLE scans ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+  );
+
+  await pool.query(`
+    ALTER TABLE scans
+    ALTER COLUMN status SET DEFAULT 'pending';
+  `);
+
+  await pool.query(`
+    UPDATE scans
+    SET status = 'pending'
+    WHERE status = 'queued';
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS scans_user_created_idx
+    ON scans (user_id, created_at DESC);
   `);
 }
 runMigrations()

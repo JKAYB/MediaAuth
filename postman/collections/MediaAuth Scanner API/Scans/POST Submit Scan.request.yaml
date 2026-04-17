@@ -1,0 +1,63 @@
+$kind: http-request
+name: 'POST Submit Scan'
+description: |-
+  Submit a media file for AI-generation detection. Accepts images (JPEG, PNG, WebP) and videos (MP4, QuickTime). Max file size: 20MB.
+
+  Authentication: Bearer JWT token OR x-api-key header.
+
+  The scan is processed asynchronously — use GET Get Scan Result to poll for results.
+method: POST
+url: '{{baseUrl}}/scan'
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{authToken}}'
+headers:
+  - key: x-api-key
+    value: '{{apiKey}}'
+    disabled: true
+  - key: Accept
+    value: application/json
+body:
+  type: formdata
+  content:
+    - key: file
+      type: file
+      src: ''
+      description: 'Media file to scan. Accepted: image/jpeg, image/png, image/webp, video/mp4, video/quicktime. Max 20MB.'
+events:
+  - listen: test
+    script: |-
+      const json = pm.response.json();
+      if (pm.response.code === 202 && json.id) {
+        pm.environment.set("scanId", json.id);
+        console.log("scanId saved to environment:", json.id);
+      }
+      pm.test("Status is 202 Accepted", () => {
+        pm.response.to.have.status(202);
+      });
+      pm.test("Response contains scan ID", () => {
+        pm.expect(json).to.have.property("id");
+        pm.expect(json.status).to.eql("queued");
+      });
+responses:
+  - name: '202 Accepted'
+    status: 202
+    body: |-
+      {
+        "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "status": "queued"
+      }
+  - name: '400 Bad Request – No File'
+    status: 400
+    body: |-
+      {
+        "error": "file is required"
+      }
+  - name: '401 Unauthorized'
+    status: 401
+    body: |-
+      {
+        "error": "Authentication required"
+      }

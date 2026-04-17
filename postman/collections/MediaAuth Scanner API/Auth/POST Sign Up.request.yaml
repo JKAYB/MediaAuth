@@ -1,0 +1,31 @@
+$kind: http-request
+name: 'POST Sign Up'
+description: 'Register a new user account. Returns the created user ID and email.'
+method: POST
+url: '{{baseUrl}}/auth/signup'
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Accept
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "email": "user@example.com",
+      "password": "password123"
+    }
+responses:
+  - name: '201 Created'
+    status: 201
+    body: |-
+      {
+        "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "email": "user@example.com"
+      }
+  - name: '400 Bad Request'
+    status: 400
+    body: |-
+      {
+        "error": "email and password are required"
+      }

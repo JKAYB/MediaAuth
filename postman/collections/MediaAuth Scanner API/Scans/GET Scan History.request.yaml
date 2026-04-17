@@ -1,0 +1,53 @@
+$kind: http-request
+name: 'GET Scan History'
+description: |-
+  Retrieve a paginated list of all scans submitted by the authenticated user, ordered by most recent first.
+
+  Authentication: Bearer JWT token OR x-api-key header.
+
+  Query params: page (default 1), limit (default 10, max 100).
+method: GET
+url: '{{baseUrl}}/scan/history'
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{authToken}}'
+headers:
+  - key: x-api-key
+    value: '{{apiKey}}'
+    disabled: true
+  - key: Accept
+    value: application/json
+queryParams:
+  - key: page
+    value: '1'
+    description: 'Page number (default: 1)'
+  - key: limit
+    value: '10'
+    description: 'Results per page (default: 10, max: 100)'
+responses:
+  - name: '200 OK'
+    status: 200
+    body: |-
+      {
+        "page": 1,
+        "limit": 10,
+        "data": [
+          {
+            "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "filename": "photo.jpg",
+            "status": "completed",
+            "confidence": 0.97,
+            "is_ai_generated": true,
+            "created_at": "2026-01-01T00:00:00.000Z",
+            "completed_at": "2026-01-01T00:00:05.000Z"
+          }
+        ]
+      }
+  - name: '401 Unauthorized'
+    status: 401
+    body: |-
+      {
+        "error": "Authentication required"
+      }

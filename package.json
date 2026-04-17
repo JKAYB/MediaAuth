@@ -2,17 +2,25 @@
   "name": "media-auth-saas",
   "version": "1.0.0",
   "private": true,
+  "overrides": {
+    "vite": "5.4.11"
+  },
   "workspaces": [
     "apps/api",
-    "apps/worker"
+    "apps/worker",
+    "apps/web"
   ],
   "scripts": {
     "dev:api": "npm --workspace apps/api run dev",
     "dev:worker": "npm --workspace apps/worker run dev",
+    "dev:web": "npm --workspace apps/web run dev",
     "db:migrate": "dotenv -e .env -- npm --workspace apps/api run db:migrate"
   },
   "dependencies": {
     "dotenv": "^17.4.2",
     "dotenv-cli": "^11.0.0"
+  },
+  "devDependencies": {
+    "vite": "5.4.11"
   }
 }

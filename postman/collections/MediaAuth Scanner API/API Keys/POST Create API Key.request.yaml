@@ -1,0 +1,51 @@
+$kind: http-request
+name: 'POST Create API Key'
+description: 'Create a new API key for the authenticated user. The returned key value (prefixed mak_) can be used in the x-api-key header as an alternative to JWT auth on scan endpoints. The test script automatically saves the key ID and value to environment variables.'
+method: POST
+url: '{{baseUrl}}/auth/apikeys'
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{authToken}}'
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Accept
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "My Key"
+    }
+events:
+  - listen: test
+    script: |-
+      const json = pm.response.json();
+      if (pm.response.code === 201) {
+        pm.environment.set("apiKeyId", json.id);
+        pm.environment.set("apiKey", json.key);
+        console.log("apiKeyId and apiKey saved to environment");
+      }
+      pm.test("Status is 201", () => {
+        pm.response.to.have.status(201);
+      });
+      pm.test("Response contains key", () => {
+        pm.expect(json).to.have.property("key");
+      });
+responses:
+  - name: '201 Created'
+    status: 201
+    body: |-
+      {
+        "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "name": "My Key",
+        "key": "mak_b2c3d4e5-f6a7-8901-bcde-f12345678901"
+      }
+  - name: '401 Unauthorized'
+    status: 401
+    body: |-
+      {
+        "error": "Authentication required"
+      }

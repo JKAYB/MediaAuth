@@ -1,0 +1,17 @@
+name: MediaAuth Scanner
+values:
+  - key: baseUrl
+    enabled: true
+    value: 'http://localhost:4000'
+  - key: authToken
+    enabled: true
+    value: ''
+  - key: apiKey
+    enabled: true
+    value: ''
+  - key: apiKeyId
+    enabled: true
+    value: ''
+  - key: scanId
+    enabled: true
+    value: ''
