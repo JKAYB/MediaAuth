@@ -128,6 +128,7 @@ export type ApiScanRow = {
   summary?: string | null;
   source_type?: string | null;
   source_url?: string | null;
+  storage_key?: string | null;
   storage_provider?: string | null;
   detection_provider?: string | null;
   created_at: string;

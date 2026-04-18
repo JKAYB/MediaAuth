@@ -90,6 +90,17 @@ export function apiScanToUiScan(row: ApiScanRow): Scan {
     ...(row.completed_at ? [{ time: "—", event: `Completed ${row.completed_at}` }] : []),
   ];
 
+  const previewUrl =
+    String(row.source_type || "").toLowerCase() === "url" &&
+    row.source_url &&
+    /^https?:\/\//i.test(String(row.source_url).trim())
+      ? String(row.source_url).trim()
+      : null;
+
+  const canFetchMedia =
+    String(row.source_type || "upload").toLowerCase() === "upload" &&
+    Boolean(row.storage_key && String(row.storage_key).trim());
+
   return {
     id: row.id,
     title: row.filename || "Untitled",
@@ -98,6 +109,9 @@ export function apiScanToUiScan(row: ApiScanRow): Scan {
     status,
     confidence,
     createdAt: row.created_at,
+    mimeType: row.mime_type || undefined,
+    previewUrl,
+    canFetchMedia,
     detections,
     metadata,
     timeline,

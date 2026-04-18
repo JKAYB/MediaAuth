@@ -11,6 +11,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useMemo, useState, useSyncExternalStore } from "react";
+import { ScanMediaPreview } from "@/components/scan/ScanMediaPreview";
 import { StatusBadge } from "@/components/ui-ext/StatusBadge";
 import { useScanByIdQuery } from "@/features/scan/hooks";
 import { getLiveDemoSnapshot, subscribeLiveDemo } from "@/lib/demo-mode";
@@ -199,21 +200,14 @@ function ScanDetail() {
             Media preview
           </div>
           <div className="grid-bg relative aspect-video w-full max-w-full min-w-0 overflow-hidden rounded-xl bg-gradient-to-br from-muted/40 to-card ring-1 ring-border">
-            <div
-              className={cn(
-                "absolute inset-0 grid place-items-center px-3 pb-2",
-                scan.status === "flagged" ? "pt-11 sm:pt-10" : "pt-2",
-              )}
-            >
-              <div className="w-full max-w-full min-w-0 text-center">
-                <div className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-card/80 ring-1 ring-border backdrop-blur sm:h-14 sm:w-14">
-                  <FileText className="h-5 w-5 text-muted-foreground sm:h-6 sm:w-6" />
-                </div>
-                <p className="mt-2.5 break-words px-1 font-mono text-[11px] leading-snug text-muted-foreground sm:mt-3 sm:text-xs">
-                  {scan.title}
-                </p>
-              </div>
-            </div>
+            <ScanMediaPreview
+              scanId={scan.id}
+              mimeType={scan.mimeType}
+              previewUrl={scan.previewUrl}
+              canFetchMedia={scan.canFetchMedia}
+              mediaKind={scan.kind}
+              liveDemo={liveDemo}
+            />
             {scan.status === "flagged" && (
               <div className="absolute left-2 right-2 top-2 flex max-w-none items-center gap-1.5 rounded-md bg-destructive/20 px-2 py-1.5 text-[10px] leading-tight text-destructive ring-1 ring-destructive/30 backdrop-blur sm:left-4 sm:right-auto sm:top-4 sm:text-xs">
                 <AlertTriangle className="h-3 w-3 shrink-0" />

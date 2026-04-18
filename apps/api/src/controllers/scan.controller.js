@@ -2,7 +2,8 @@ const {
   createScanFromUpload,
   createScanFromUrl,
   getScanById,
-  getScanHistory
+  getScanHistory,
+  getScanMediaForUser
 } = require("../services/scan.service");
 const {
   getScanActivityAnalytics,
@@ -83,6 +84,60 @@ async function getScanResult(req, res, next) {
   }
 }
 
+async function streamScanMedia(req, res, next) {
+  try {
+    const rangeHeader = req.get("Range");
+    const result = await getScanMediaForUser({
+      scanId: req.params.id,
+      userId: req.user.id,
+      rangeHeader
+    });
+    if (!result.ok) {
+      if (result.reason === "not_found") {
+        return res.status(404).json({ error: "Scan not found" });
+      }
+      if (result.reason === "no_media") {
+        return res.status(404).json({ error: "No uploaded media for this scan" });
+      }
+      if (result.reason === "too_large") {
+        return res.status(413).json({ error: "Media preview is too large to stream" });
+      }
+      if (result.reason === "range_not_satisfiable") {
+        const ts = result.totalSize != null ? result.totalSize : 0;
+        res.setHeader("Content-Range", `bytes */${ts}`);
+        return res.status(416).end();
+      }
+      return res.status(500).json({ error: result.message || "Failed to read media" });
+    }
+
+    res.setHeader("Content-Type", result.mimeType);
+    res.setHeader("Cache-Control", "private, max-age=120");
+    res.setHeader("Content-Disposition", "inline");
+    res.setHeader("Accept-Ranges", "bytes");
+    res.setHeader("Content-Length", String(result.contentLength));
+    if (result.isPartial) {
+      res.setHeader(
+        "Content-Range",
+        `bytes ${result.rangeStart}-${result.rangeEnd}/${result.totalSize}`
+      );
+    }
+
+    res.status(result.httpStatus);
+
+    result.stream.on("error", (err) => {
+      if (!res.headersSent) {
+        res.status(500).json({ error: err.message || "Stream error" });
+      } else {
+        res.destroy(err);
+      }
+    });
+
+    result.stream.pipe(res);
+  } catch (error) {
+    return next(error);
+  }
+}
+
 async function scanHistory(req, res, next) {
   try {
     const { page, limit } = parsePagination(req.query);
@@ -122,6 +177,7 @@ module.exports = {
   submitScanUpload,
   submitScanUrl,
   getScanResult,
+  streamScanMedia,
   scanHistory,
   scanAnalyticsActivity,
   scanAnalyticsDetectionMix

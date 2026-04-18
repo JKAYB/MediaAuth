@@ -10,6 +10,12 @@ export interface Scan {
   confidence: number; // 0-100
   createdAt: string;
   thumbnail?: string;
+  /** MIME for preview (e.g. image/jpeg); mirrors API `mime_type`. */
+  mimeType?: string;
+  /** Public URL for demo or URL-sourced scans (`<img src>` / `<video src>`). */
+  previewUrl?: string | null;
+  /** Upload has stored bytes — real app loads via authenticated GET /scan/:id/media. */
+  canFetchMedia?: boolean;
   detections: { label: string; score: number }[];
   metadata: { key: string; value: string }[];
   timeline: { time: string; event: string }[];
@@ -24,6 +30,8 @@ export const scans: Scan[] = [
     title: "press_release_clip.mp4",
     source: "upload",
     kind: "video",
+    mimeType: "video/webm",
+    previewUrl: "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.webm",
     status: "flagged",
     confidence: 94,
     createdAt: ago(2),
@@ -51,6 +59,8 @@ export const scans: Scan[] = [
     title: "https://news.example.com/photo-43",
     source: "url",
     kind: "url",
+    mimeType: "image/jpeg",
+    previewUrl: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=1200&q=80",
     status: "safe",
     confidence: 12,
     createdAt: ago(6),
@@ -96,6 +106,8 @@ export const scans: Scan[] = [
     title: "campaign_banner.png",
     source: "upload",
     kind: "image",
+    mimeType: "image/png",
+    previewUrl: "https://images.unsplash.com/photo-1557683316-973673baf926?w=1200&q=80",
     status: "safe",
     confidence: 6,
     createdAt: ago(28),
@@ -114,6 +126,8 @@ export const scans: Scan[] = [
     title: "leaked_clip.mov",
     source: "upload",
     kind: "video",
+    mimeType: "video/webm",
+    previewUrl: "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.webm",
     status: "pending",
     confidence: 0,
     createdAt: ago(0.2),

@@ -3,6 +3,7 @@ const {
   submitScanUpload,
   submitScanUrl,
   getScanResult,
+  streamScanMedia,
   scanHistory,
   scanAnalyticsActivity,
   scanAnalyticsDetectionMix
@@ -34,6 +35,7 @@ router.use(normalizeUploadError);
 router.get("/analytics/activity", scanAnalyticsActivity);
 router.get("/analytics/detection-mix", scanAnalyticsDetectionMix);
 router.get("/history", scanHistory);
+router.get("/:id/media", streamScanMedia);
 router.get("/:id", getScanResult);
 
 module.exports = router;

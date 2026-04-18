@@ -560,6 +560,44 @@ d("API scan integration", () => {
       assert.ok(detail.body.result_payload && typeof detail.body.result_payload === "object");
       assert.equal(detail.body.detection_provider, "mock");
       assert.ok(detail.body.completed_at);
+
+      const mediaRes = await fetch(`${baseUrl}/scan/${scanId}/media`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      assert.equal(mediaRes.status, 200);
+      const ct = String(mediaRes.headers.get("content-type") || "");
+      assert.ok(ct.includes("image"), `expected image content-type, got ${ct}`);
+      assert.equal(String(mediaRes.headers.get("accept-ranges") || "").toLowerCase(), "bytes");
+      const totalLen = MIN_PNG.length;
+      assert.equal(Number(mediaRes.headers.get("content-length")), totalLen);
+      const buf = Buffer.from(await mediaRes.arrayBuffer());
+      assert.equal(buf.length, totalLen);
+      assert.equal(buf.compare(MIN_PNG), 0);
+
+      const r206 = await fetch(`${baseUrl}/scan/${scanId}/media`, {
+        headers: { Authorization: `Bearer ${token}`, Range: "bytes=0-3" }
+      });
+      assert.equal(r206.status, 206);
+      assert.equal(r206.headers.get("content-length"), "4");
+      const cr = String(r206.headers.get("content-range") || "");
+      assert.ok(cr.startsWith(`bytes 0-3/${totalLen}`), cr);
+      const partial = Buffer.from(await r206.arrayBuffer());
+      assert.equal(partial.length, 4);
+      assert.equal(partial.compare(MIN_PNG, 0, 4, 0, 4), 0);
+
+      const r416 = await fetch(`${baseUrl}/scan/${scanId}/media`, {
+        headers: { Authorization: `Bearer ${token}`, Range: `bytes=${totalLen + 10}-${totalLen + 20}` }
+      });
+      assert.equal(r416.status, 416);
+      assert.equal(String(r416.headers.get("content-range") || ""), `bytes */${totalLen}`);
+
+      await pool.query(`UPDATE scans SET file_size_bytes = $2 WHERE id = $1`, [scanId, 26 * 1024 * 1024]);
+      const r413 = await fetchJson(`${baseUrl}/scan/${scanId}/media`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      assert.equal(r413.res.status, 413);
+      assert.equal(r413.body.error, "Media preview is too large to stream");
+      await pool.query(`UPDATE scans SET file_size_bytes = $2 WHERE id = $1`, [scanId, totalLen]);
     });
   });
 });
