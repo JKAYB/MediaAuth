@@ -152,8 +152,13 @@ function ScanDetail() {
       >
         <div className="grid gap-6 md:grid-cols-[1fr,auto] md:items-center">
           <div>
-            <div className="mb-2 flex items-center gap-2">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
               <StatusBadge status={scan.status} />
+              {!liveDemo && rowQuery.isRefetching && scan.status === "pending" && (
+                <span className="text-xs text-muted-foreground tabular-nums" aria-live="polite">
+                  Checking for results…
+                </span>
+              )}
               <span className="font-mono text-xs text-muted-foreground">{scan.id}</span>
             </div>
             <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">

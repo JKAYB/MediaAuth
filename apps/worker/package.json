@@ -5,9 +5,15 @@
   "type": "commonjs",
   "scripts": {
     "dev": "nodemon src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "worker": "node src/index.js",
+    "real-provider:check": "node src/detection/realProviderHealthCli.js",
+    "test": "sh -c 'node --test test/*.test.js'",
+    "test:watch": "sh -c 'node --test --watch test/*.test.js'",
+    "test:integration": "sh -c 'node --test test/integration/*.integration.test.js'"
   },
   "dependencies": {
+    "@media-auth/scan-storage": "file:../../packages/scan-storage",
     "bullmq": "^5.10.4",
     "dotenv": "^16.4.5",
     "ioredis": "^5.4.1",

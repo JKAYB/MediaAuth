@@ -1,4 +1,15 @@
-const { createScan, getScanById, getScanHistory } = require("../services/scan.service");
+const {
+  createScanFromUpload,
+  createScanFromUrl,
+  getScanById,
+  getScanHistory
+} = require("../services/scan.service");
+const {
+  getScanActivityAnalytics,
+  getDetectionMixAnalytics
+} = require("../services/scanAnalytics.service");
+
+const MAX_URL_LEN = 2048;
 
 function parsePagination(query) {
   const page = Number.parseInt(query.page, 10);
@@ -10,13 +21,47 @@ function parsePagination(query) {
   };
 }
 
-async function submitScan(req, res, next) {
+function parseScanUrl(body) {
+  const url = body && typeof body.url === "string" ? body.url.trim() : "";
+  if (!url) {
+    return { ok: false, error: "url is required" };
+  }
+  if (url.length > MAX_URL_LEN) {
+    return { ok: false, error: `url exceeds ${MAX_URL_LEN} characters` };
+  }
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { ok: false, error: "url must be a valid http(s) URL" };
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return { ok: false, error: "url must use http or https" };
+  }
+  return { ok: true, url: parsed.toString() };
+}
+
+async function submitScanUpload(req, res, next) {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "file is required" });
     }
 
-    const scan = await createScan({ userId: req.user.id, file: req.file });
+    const scan = await createScanFromUpload({ userId: req.user.id, file: req.file });
+    return res.status(202).json(scan);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function submitScanUrl(req, res, next) {
+  try {
+    const parsed = parseScanUrl(req.body);
+    if (!parsed.ok) {
+      return res.status(400).json({ error: parsed.error });
+    }
+
+    const scan = await createScanFromUrl({ userId: req.user.id, url: parsed.url });
     return res.status(202).json(scan);
   } catch (error) {
     return next(error);
@@ -46,4 +91,36 @@ async function scanHistory(req, res, next) {
   }
 }
 
-module.exports = { submitScan, getScanResult, scanHistory };
+async function scanAnalyticsActivity(req, res, next) {
+  try {
+    const result = await getScanActivityAnalytics({
+      userId: req.user.id,
+      range: req.query.range,
+      groupBy: req.query.groupBy
+    });
+    return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function scanAnalyticsDetectionMix(req, res, next) {
+  try {
+    const result = await getDetectionMixAnalytics({
+      userId: req.user.id,
+      range: req.query.range
+    });
+    return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+module.exports = {
+  submitScanUpload,
+  submitScanUrl,
+  getScanResult,
+  scanHistory,
+  scanAnalyticsActivity,
+  scanAnalyticsDetectionMix
+};

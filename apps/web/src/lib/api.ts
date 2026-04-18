@@ -125,6 +125,11 @@ export type ApiScanRow = {
   is_ai_generated: boolean | null;
   result_payload?: unknown;
   error_message?: string | null;
+  summary?: string | null;
+  source_type?: string | null;
+  source_url?: string | null;
+  storage_provider?: string | null;
+  detection_provider?: string | null;
   created_at: string;
   completed_at?: string | null;
   updated_at?: string | null;
@@ -152,6 +157,62 @@ export async function getScanById(id: string): Promise<ApiScanRow> {
   return apiJson<ApiScanRow>(`/scan/${id}`);
 }
 
+/** Matches `GET /scan/analytics/activity` query `range`. */
+export type ScanAnalyticsRange = "7d" | "14d" | "30d";
+
+export type ScanActivitySummary = {
+  total: number;
+  pending: number;
+  processing: number;
+  completed: number;
+  failed: number;
+  other: number;
+};
+
+export type ScanActivityPoint = {
+  date: string;
+  total: number;
+  pending: number;
+  processing: number;
+  completed: number;
+  failed: number;
+  other: number;
+};
+
+export type ScanAnalyticsActivityResponse = {
+  range: ScanAnalyticsRange;
+  groupBy: "day";
+  summary: ScanActivitySummary;
+  points: ScanActivityPoint[];
+};
+
+export type DetectionMixItem = {
+  key: "authentic" | "suspicious" | "manipulated";
+  label: string;
+  count: number;
+  percentage: number;
+};
+
+export type ScanAnalyticsDetectionMixResponse = {
+  range: ScanAnalyticsRange;
+  total: number;
+  items: DetectionMixItem[];
+};
+
+export async function getScanAnalyticsActivity(
+  range: ScanAnalyticsRange = "14d",
+): Promise<ScanAnalyticsActivityResponse> {
+  const q = new URLSearchParams({ range, groupBy: "day" });
+  return apiJson<ScanAnalyticsActivityResponse>(`/scan/analytics/activity?${q.toString()}`);
+}
+
+export async function getScanAnalyticsDetectionMix(
+  range: ScanAnalyticsRange = "14d",
+): Promise<ScanAnalyticsDetectionMixResponse> {
+  const q = new URLSearchParams({ range });
+  return apiJson<ScanAnalyticsDetectionMixResponse>(`/scan/analytics/detection-mix?${q.toString()}`);
+}
+
 const SCAN_UPLOAD_MS = 120_000;
 
 export async function submitScanFile(file: File): Promise<{ id: string; status: string }> {
@@ -167,6 +228,27 @@ export async function submitScanFile(file: File): Promise<{ id: string; status: 
     });
     const data = (await parseJson(res)) as { id?: string; status?: string; error?: string };
     if (!res.ok) throw new Error(data.error || "Scan upload failed");
+    if (!data.id) throw new Error("Invalid scan response");
+    return { id: data.id, status: data.status || "pending" };
+  } finally {
+    window.clearTimeout(t);
+  }
+}
+
+const SCAN_URL_MS = 60_000;
+
+export async function submitScanUrl(url: string): Promise<{ id: string; status: string }> {
+  const controller = new AbortController();
+  const t = window.setTimeout(() => controller.abort(), SCAN_URL_MS);
+  try {
+    const res = await apiFetch("/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: url.trim() }),
+      signal: controller.signal,
+    });
+    const data = (await parseJson(res)) as { id?: string; status?: string; error?: string };
+    if (!res.ok) throw new Error(data.error || "Scan request failed");
     if (!data.id) throw new Error("Invalid scan response");
     return { id: data.id, status: data.status || "pending" };
   } finally {

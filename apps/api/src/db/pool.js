@@ -4,15 +4,14 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not set. Check your .env loading path.");
 }
 
-const isProductionDb =
-  process.env.DATABASE_URL &&
-  !process.env.DATABASE_URL.includes("localhost");
+const databaseUrl = process.env.DATABASE_URL || "";
+// Match common local URLs (e.g. .env.docker.example uses 127.0.0.1, not "localhost").
+const isLikelyLocalPostgres =
+  databaseUrl.includes("localhost") || databaseUrl.includes("127.0.0.1");
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: isProductionDb
-    ? { rejectUnauthorized: false }
-    : false,
+  ssl: isLikelyLocalPostgres ? false : { rejectUnauthorized: false },
 });
 
 module.exports = { pool };

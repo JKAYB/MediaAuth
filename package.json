@@ -8,19 +8,45 @@
   "workspaces": [
     "apps/api",
     "apps/worker",
-    "apps/web"
+    "apps/web",
+    "packages/scan-storage"
   ],
   "scripts": {
     "dev:api": "npm --workspace apps/api run dev",
     "dev:worker": "npm --workspace apps/worker run dev",
+    "worker": "npm --workspace apps/worker run start",
     "dev:web": "npm --workspace apps/web run dev",
-    "db:migrate": "dotenv -e .env -- npm --workspace apps/api run db:migrate"
+    "dev": "concurrently -n api,worker,web -c blue,magenta,cyan \"npm run dev:api\" \"npm run dev:worker\" \"npm run dev:web\"",
+    "dev:all": "npm run dev",
+    "dev:check": "node scripts/dev-setup-check.js",
+    "db:migrate": "dotenv -e .env -- npm --workspace apps/api run db:migrate",
+    "real-provider:check": "npm --workspace apps/worker run real-provider:check",
+    "object-storage:check": "npm --workspace @media-auth/scan-storage run storage:check",
+    "migrate:local-uploads-to-s3": "dotenv -e .env -- node apps/api/src/scripts/migrate-local-uploads-to-s3.js",
+    "migrate:local-uploads-to-s3:dry-run": "dotenv -e .env -- node apps/api/src/scripts/migrate-local-uploads-to-s3.js --dry-run",
+    "audit:scan-upload-storage": "dotenv -e .env -- node apps/api/src/scripts/audit-scan-upload-storage.js",
+    "audit:scan-upload-storage:with-s3": "dotenv -e .env -- node apps/api/src/scripts/audit-scan-upload-storage.js --check-s3 --check-local",
+    "audit:scan-upload-storage:json": "dotenv -e .env -- node apps/api/src/scripts/audit-scan-upload-storage.js --json",
+    "cleanup:local-upload-files:dry-run": "dotenv -e .env -- node apps/api/src/scripts/cleanup-local-upload-files.js",
+    "cleanup:local-upload-files": "dotenv -e .env -- node apps/api/src/scripts/cleanup-local-upload-files.js --execute",
+    "test:worker": "npm --workspace apps/worker run test",
+    "test:integration:worker": "RUN_SCAN_INTEGRATION=1 npm --workspace apps/worker run test:integration",
+    "test:integration:api": "dotenv -e .env -- npm --workspace apps/api run test:integration:api",
+    "test:integration:api:s3": "dotenv -e .env -- npm --workspace apps/api run test:integration:api:s3",
+    "test:scan-storage": "npm --workspace @media-auth/scan-storage run test",
+    "test:scan-storage:s3": "dotenv -e .env -- env RUN_S3_INTEGRATION=1 npm --workspace @media-auth/scan-storage run test:s3-integration",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "docker:reset": "docker compose down -v && docker compose up -d",
+    "docker:infra:up": "docker compose up -d postgres redis minio minio-create-bucket"
   },
   "dependencies": {
     "dotenv": "^17.4.2",
     "dotenv-cli": "^11.0.0"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "vite": "5.4.11"
   }
 }

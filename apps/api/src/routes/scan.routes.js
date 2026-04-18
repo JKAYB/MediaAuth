@@ -1,8 +1,11 @@
 const express = require("express");
 const {
-  submitScan,
+  submitScanUpload,
+  submitScanUrl,
   getScanResult,
-  scanHistory
+  scanHistory,
+  scanAnalyticsActivity,
+  scanAnalyticsDetectionMix
 } = require("../controllers/scan.controller");
 const { authMiddleware, requireUser } = require("../middleware/auth.middleware");
 const { apiKeyMiddleware } = require("../middleware/apikey.middleware");
@@ -14,8 +17,22 @@ router.use(authMiddleware);
 router.use(apiKeyMiddleware);
 router.use(requireUser);
 
-router.post("/", upload.single("file"), submitScan);
+function routeCreateScan(req, res, next) {
+  if (req.is("application/json")) {
+    return submitScanUrl(req, res, next);
+  }
+  return upload.single("file")(req, res, (err) => {
+    if (err) {
+      return next(err);
+    }
+    return submitScanUpload(req, res, next);
+  });
+}
+
+router.post("/", routeCreateScan);
 router.use(normalizeUploadError);
+router.get("/analytics/activity", scanAnalyticsActivity);
+router.get("/analytics/detection-mix", scanAnalyticsDetectionMix);
 router.get("/history", scanHistory);
 router.get("/:id", getScanResult);
 

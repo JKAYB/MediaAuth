@@ -56,6 +56,13 @@ async function runMigrations() {
   );
   await pool.query(`ALTER TABLE scans ADD COLUMN IF NOT EXISTS result_payload JSONB`);
   await pool.query(`ALTER TABLE scans ADD COLUMN IF NOT EXISTS error_message TEXT`);
+  await pool.query(`ALTER TABLE scans ADD COLUMN IF NOT EXISTS summary TEXT`);
+  await pool.query(
+    `ALTER TABLE scans ADD COLUMN IF NOT EXISTS source_type TEXT NOT NULL DEFAULT 'upload'`
+  );
+  await pool.query(`ALTER TABLE scans ADD COLUMN IF NOT EXISTS source_url TEXT`);
+  await pool.query(`ALTER TABLE scans ADD COLUMN IF NOT EXISTS storage_key TEXT`);
+  await pool.query(`ALTER TABLE scans ADD COLUMN IF NOT EXISTS detection_provider TEXT`);
   await pool.query(
     `ALTER TABLE scans ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
   );
@@ -75,6 +82,11 @@ async function runMigrations() {
     CREATE INDEX IF NOT EXISTS scans_user_created_idx
     ON scans (user_id, created_at DESC);
   `);
+
+  await pool.query(
+    `ALTER TABLE scans ADD COLUMN IF NOT EXISTS retry_count INTEGER NOT NULL DEFAULT 0`
+  );
+  await pool.query(`ALTER TABLE scans ADD COLUMN IF NOT EXISTS storage_provider TEXT`);
 }
 runMigrations()
   .then(() => {

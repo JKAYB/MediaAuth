@@ -45,14 +45,14 @@ function SidebarContent({
 }) {
   return (
     <div className="flex h-full flex-col select-none lg:select-auto">
-      <div className="px-5 py-5">
+      <div className="border-b border-sidebar-border/50 px-3 pb-3 pt-4">
         <Link
           to={logoTo}
           aria-label={logoAriaLabel}
           onClick={() => onMobileNavClick?.()}
-          className="inline-flex w-fit touch-manipulation rounded-lg outline-none ring-offset-background transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring [-webkit-tap-highlight-color:transparent]"
+          className="block w-full min-w-0 touch-manipulation rounded-lg outline-none ring-offset-background transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring [-webkit-tap-highlight-color:transparent]"
         >
-          <Logo />
+          <Logo fullWidth />
         </Link>
       </div>
 

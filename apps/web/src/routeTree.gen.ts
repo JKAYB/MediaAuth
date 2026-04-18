@@ -13,6 +13,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as InternalScansRouteImport } from './routes/internal/scans'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppScanRouteImport } from './routes/_app.scan'
 import { Route as AppProfileRouteImport } from './routes/_app.profile'
@@ -38,6 +39,11 @@ const AppRoute = AppRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InternalScansRoute = InternalScansRouteImport.update({
+  id: '/internal/scans',
+  path: '/internal/scans',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
@@ -85,6 +91,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof AppProfileRoute
   '/scan': typeof AppScanRoute
   '/settings': typeof AppSettingsRoute
+  '/internal/scans': typeof InternalScansRoute
   '/scans/$id': typeof AppScansIdRoute
   '/scans/': typeof AppScansIndexRoute
 }
@@ -97,6 +104,7 @@ export interface FileRoutesByTo {
   '/profile': typeof AppProfileRoute
   '/scan': typeof AppScanRoute
   '/settings': typeof AppSettingsRoute
+  '/internal/scans': typeof InternalScansRoute
   '/scans/$id': typeof AppScansIdRoute
   '/scans': typeof AppScansIndexRoute
 }
@@ -111,6 +119,7 @@ export interface FileRoutesById {
   '/_app/profile': typeof AppProfileRoute
   '/_app/scan': typeof AppScanRoute
   '/_app/settings': typeof AppSettingsRoute
+  '/internal/scans': typeof InternalScansRoute
   '/_app/scans/$id': typeof AppScansIdRoute
   '/_app/scans/': typeof AppScansIndexRoute
 }
@@ -125,6 +134,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/scan'
     | '/settings'
+    | '/internal/scans'
     | '/scans/$id'
     | '/scans/'
   fileRoutesByTo: FileRoutesByTo
@@ -137,6 +147,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/scan'
     | '/settings'
+    | '/internal/scans'
     | '/scans/$id'
     | '/scans'
   id:
@@ -150,6 +161,7 @@ export interface FileRouteTypes {
     | '/_app/profile'
     | '/_app/scan'
     | '/_app/settings'
+    | '/internal/scans'
     | '/_app/scans/$id'
     | '/_app/scans/'
   fileRoutesById: FileRoutesById
@@ -159,6 +171,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
+  InternalScansRoute: typeof InternalScansRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -189,6 +202,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/internal/scans': {
+      id: '/internal/scans'
+      path: '/internal/scans'
+      fullPath: '/internal/scans'
+      preLoaderRoute: typeof InternalScansRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/settings': {
@@ -270,6 +290,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
+  InternalScansRoute: InternalScansRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

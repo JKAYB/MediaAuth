@@ -1,0 +1,42 @@
+const { resolveActiveProviderId, getProvider } = require("./registry");
+const { normalizeProviderResult } = require("./validate");
+const { buildResultPayload } = require("./resultPayload");
+
+/**
+ * Public façade: resolve the configured provider, run it, return a normalized result + DB payload fragment.
+ *
+ * @param {import('../services/scanSource').ScanMediaInput} media
+ * @param {{ scanId: string; userId?: string | null }} ctx
+ * @returns {Promise<import('./contract').ProviderResult & { resultPayload: ReturnType<typeof buildResultPayload> }>}
+ */
+async function runDetection(media, ctx) {
+  const scanId = ctx && ctx.scanId;
+  if (!scanId) {
+    throw new Error("runDetection requires ctx.scanId");
+  }
+
+  /** @type {import('./contract').ProviderInput} */
+  const input = {
+    ...media,
+    scanId,
+    userId: ctx.userId != null ? ctx.userId : null
+  };
+
+  const providerId = resolveActiveProviderId();
+  const provider = getProvider(providerId);
+
+  console.info(`[detection] scan=${scanId} provider=${provider.id}`);
+
+  const raw = await provider.detect(input);
+  const normalized = normalizeProviderResult(raw, provider.id);
+  const resultPayload = buildResultPayload(normalized);
+
+  return {
+    ...normalized,
+    resultPayload
+  };
+}
+
+module.exports = {
+  runDetection
+};

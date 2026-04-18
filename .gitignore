@@ -18,6 +18,7 @@ coverage/
 .env
 .env.*
 !.env.example
+!.env.docker.example
 
 # =========================
 # Logs
@@ -61,6 +62,8 @@ dump.rdb
 uploads/
 tmp/
 temp/
+data/scan-uploads/*
+!data/scan-uploads/.gitkeep
 
 # =========================
 # Docker (optional)

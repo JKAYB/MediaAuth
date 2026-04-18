@@ -1,17 +1,23 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { ScanSearch, ShieldCheck, ShieldAlert, Activity, Gauge, Inbox } from "lucide-react";
-import { useMemo, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ActivityChart } from "@/components/dashboard/ActivityChart";
 import { ScanRow } from "@/components/dashboard/ScanRow";
 import { SectionHeader } from "@/components/ui-ext/SectionHeader";
 import { EmptyState } from "@/components/ui-ext/EmptyState";
 import { useMe } from "@/features/auth/hooks";
-import { useScanHistoryQuery } from "@/features/scan/hooks";
+import {
+  useScanHistoryQuery,
+  useScanAnalyticsActivityQuery,
+  useScanAnalyticsDetectionMixQuery,
+} from "@/features/scan/hooks";
 import { getLiveDemoSnapshot, subscribeLiveDemo } from "@/lib/demo-mode";
 import type { Scan } from "@/lib/mock-data";
+import type { ScanAnalyticsRange } from "@/lib/api";
 import { metrics as demoMetrics, scans as demoScans, user as demoUser } from "@/lib/mock-data";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — MediaAuth" }] }),
@@ -27,10 +33,27 @@ const emptyLiveMetrics = [
   { label: "Flagged", value: 0, delta: "—", trend: "up" as const },
 ];
 
+const RANGE_OPTIONS: ScanAnalyticsRange[] = ["7d", "14d", "30d"];
+
+const MIX_GRADIENT: Record<string, string> = {
+  authentic: "from-success to-success/60",
+  suspicious: "from-warning to-warning/60",
+  manipulated: "from-destructive to-destructive/60",
+};
+
+function rangeDayLabel(r: ScanAnalyticsRange): string {
+  if (r === "7d") return "7";
+  if (r === "14d") return "14";
+  return "30";
+}
+
 function Dashboard() {
   const liveDemo = useSyncExternalStore(subscribeLiveDemo, getLiveDemoSnapshot, () => false);
+  const [range, setRange] = useState<ScanAnalyticsRange>("14d");
   const meQuery = useMe();
   const historyQuery = useScanHistoryQuery({ page: 1, limit: 10, enabled: !liveDemo });
+  const activityQuery = useScanAnalyticsActivityQuery({ range, enabled: !liveDemo });
+  const mixQuery = useScanAnalyticsDetectionMixQuery({ range, enabled: !liveDemo });
 
   const scans: Scan[] = useMemo(
     () => (liveDemo ? demoScans.slice(0, 5) : (historyQuery.data ?? [])),
@@ -41,26 +64,31 @@ function Dashboard() {
 
   const recent = scans.slice(0, 5);
 
-  const liveMetrics = useMemo(() => {
-    const total = scans.length;
-    const completed = scans.filter((s) => s.status !== "pending").length;
-    const flagged = scans.filter((s) => s.status === "flagged").length;
-    const pending = scans.filter((s) => s.status === "pending").length;
-    return [
-      { label: "Total scans", value: total, delta: "live", trend: "up" as const },
-      { label: "Completed", value: completed, delta: "live", trend: "up" as const },
-      { label: "Pending", value: pending, delta: "live", trend: "down" as const },
-      { label: "Flagged", value: flagged, delta: "live", trend: "up" as const },
-    ];
-  }, [scans]);
+  const analyticsReady =
+    !liveDemo && activityQuery.isSuccess && mixQuery.isSuccess && activityQuery.data && mixQuery.data;
 
-  const displayMetrics = liveDemo
-    ? demoMetrics
-    : loading
-      ? emptyLiveMetrics
-      : scans.length
-        ? liveMetrics
-        : emptyLiveMetrics;
+  const analyticsPending = !liveDemo && (activityQuery.isPending || mixQuery.isPending);
+
+  const displayMetrics = useMemo(() => {
+    if (liveDemo) return demoMetrics;
+    if (!analyticsReady || !activityQuery.data || !mixQuery.data) {
+      return emptyLiveMetrics;
+    }
+    const s = activityQuery.data.summary;
+    const manipulated =
+      mixQuery.data.items.find((i) => i.key === "manipulated")?.count ?? 0;
+    const pendingQueue = s.pending + s.processing;
+    return [
+      { label: "Total scans", value: s.total, delta: "—", trend: "up" as const },
+      { label: "Completed", value: s.completed, delta: "—", trend: "up" as const },
+      { label: "Pending", value: pendingQueue, delta: "—", trend: "down" as const },
+      { label: "Flagged", value: manipulated, delta: "—", trend: "up" as const },
+    ];
+  }, [liveDemo, analyticsReady, activityQuery.data, mixQuery.data]);
+
+  const scanTotalBlurb =
+    activityQuery.data?.summary.total ??
+    (liveDemo || !analyticsPending ? scans.length : null);
 
   const orgEyebrow = liveDemo
     ? `${demoUser.org} · ${demoUser.plan}`
@@ -69,6 +97,10 @@ function Dashboard() {
       : loading || meQuery.isPending
         ? "Loading workspace…"
         : "Workspace";
+
+  const analyticsChartError =
+    !liveDemo && activityQuery.isError ? activityQuery.error.message : null;
+  const analyticsMixError = !liveDemo && mixQuery.isError ? mixQuery.error.message : null;
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
@@ -92,10 +124,12 @@ function Dashboard() {
                 "Sample workspace data below — use Exit demo in the banner to return to your account."
               ) : error ? (
                 <span className="text-destructive">{error}</span>
-              ) : loading ? (
+              ) : loading || analyticsPending ? (
                 "Loading your latest scan activity…"
+              ) : scanTotalBlurb != null ? (
+                `You have ${scanTotalBlurb} scan${scanTotalBlurb === 1 ? "" : "s"} in the selected period (${range}). Metrics below use your account data.`
               ) : (
-                `You have ${scans.length} scan${scans.length === 1 ? "" : "s"} in this session. Metrics below reflect your account when data is available.`
+                "Metrics below use your account data for the selected range."
               )}
             </p>
           </div>
@@ -125,27 +159,41 @@ function Dashboard() {
           <div className="mb-4 flex items-center justify-between">
             <div>
               <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Last 14 days
+                Last {rangeDayLabel(range)} days
               </div>
               <div className="mt-0.5 font-display text-xl font-semibold">Scan activity</div>
             </div>
             <div className="flex items-center gap-1 rounded-lg border border-border bg-input/40 p-0.5 text-xs">
-              {["7d", "14d", "30d"].map((p, i) => (
+              {RANGE_OPTIONS.map((p) => (
                 <button
                   key={p}
                   type="button"
-                  className={
-                    i === 1
-                      ? "rounded-md bg-card px-2.5 py-1 font-medium ring-1 ring-border"
-                      : "px-2.5 py-1 text-muted-foreground hover:text-foreground"
-                  }
+                  onClick={() => setRange(p)}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 transition-colors",
+                    range === p
+                      ? "bg-card font-medium ring-1 ring-border"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
                 >
                   {p}
                 </button>
               ))}
             </div>
           </div>
-          <ActivityChart />
+          {liveDemo ? (
+            <ActivityChart points={[]} useDemoFallback />
+          ) : analyticsChartError ? (
+            <div className="flex h-40 items-center justify-center text-center text-sm text-destructive">
+              {analyticsChartError}
+            </div>
+          ) : activityQuery.isPending ? (
+            <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+              Loading chart…
+            </div>
+          ) : (
+            <ActivityChart points={activityQuery.data?.points ?? []} />
+          )}
         </motion.div>
 
         <motion.div
@@ -155,28 +203,71 @@ function Dashboard() {
           className="rounded-2xl border border-border/60 bg-card/60 p-6 backdrop-blur-xl elevated"
         >
           <div className="mb-4 font-display text-xl font-semibold">Detection mix</div>
-          <div className="space-y-3">
-            {[
-              { l: "Authentic", v: 78, c: "from-success to-success/60" },
-              { l: "Suspicious", v: 14, c: "from-warning to-warning/60" },
-              { l: "Manipulated", v: 8, c: "from-destructive to-destructive/60" },
-            ].map((r, i) => (
-              <div key={r.l}>
-                <div className="mb-1.5 flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{r.l}</span>
-                  <span className="font-mono">{r.v}%</span>
+          {liveDemo ? (
+            <div className="space-y-3">
+              {[
+                { l: "Authentic", v: 78, c: "from-success to-success/60" },
+                { l: "Suspicious", v: 14, c: "from-warning to-warning/60" },
+                { l: "Manipulated", v: 8, c: "from-destructive to-destructive/60" },
+              ].map((r, i) => (
+                <div key={r.l}>
+                  <div className="mb-1.5 flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">{r.l}</span>
+                    <span className="font-mono">{r.v}%</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${r.v}%` }}
+                      transition={{ duration: 0.8, delay: 0.2 + i * 0.1, ease: [0.22, 1, 0.36, 1] }}
+                      className={`h-full rounded-full bg-gradient-to-r ${r.c}`}
+                    />
+                  </div>
                 </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${r.v}%` }}
-                    transition={{ duration: 0.8, delay: 0.2 + i * 0.1, ease: [0.22, 1, 0.36, 1] }}
-                    className={`h-full rounded-full bg-gradient-to-r ${r.c}`}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : analyticsMixError ? (
+            <div className="text-sm text-destructive">{analyticsMixError}</div>
+          ) : mixQuery.isPending ? (
+            <div className="space-y-3">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-6 animate-pulse rounded-md bg-muted/60" />
+              ))}
+            </div>
+          ) : mixQuery.data && mixQuery.data.total === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No completed scans in this period — run a scan to build your mix.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {mixQuery.data?.items.map((item, i) => {
+                const pct = Math.min(100, Math.max(0, item.percentage));
+                const grad = MIX_GRADIENT[item.key] ?? "from-primary to-accent/60";
+                return (
+                  <div key={item.key}>
+                    <div className="mb-1.5 flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">{item.label}</span>
+                      <span className="font-mono tabular-nums">
+                        {pct % 1 === 0 ? String(pct) : pct.toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct}%` }}
+                        transition={{
+                          duration: 0.8,
+                          delay: 0.2 + i * 0.1,
+                          ease: [0.22, 1, 0.36, 1],
+                        }}
+                        className={`h-full rounded-full bg-gradient-to-r ${grad}`}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </motion.div>
       </section>
 

@@ -1,23 +1,43 @@
-import { ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export function Logo({ className, compact = false }: { className?: string; compact?: boolean }) {
+const lockupSrc = "/brand/lockup.png";
+
+/** Intrinsic pixels of `public/brand/lockup.png` — keeps layout ratio before paint. */
+const LOCKUP_WIDTH = 899;
+const LOCKUP_HEIGHT = 362;
+
+export function Logo({
+  className,
+  compact = false,
+  /** Sidebar: full nav width, fixed height; image is letterboxed with `object-contain`. */
+  fullWidth = false,
+}: {
+  className?: string;
+  compact?: boolean;
+  fullWidth?: boolean;
+}) {
+  const slotClass = fullWidth
+    ? "h-12 w-full min-w-0 sm:h-14"
+    : compact
+      ? "h-8 w-[min(100%,10.5rem)] max-w-[168px]"
+      : "h-10 w-[min(100%,14rem)] sm:h-11 sm:w-[min(100%,15.5rem)]";
+
   return (
     <div
       className={cn(
-        "flex touch-manipulation select-none items-center gap-2 [-webkit-tap-highlight-color:transparent]",
+        "relative touch-manipulation select-none [-webkit-tap-highlight-color:transparent]",
+        slotClass,
         className,
       )}
     >
-      <div className="relative grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-[0_0_24px_-6px_var(--primary)]">
-        <ShieldCheck className="h-4 w-4" strokeWidth={2.5} />
-        <span className="absolute inset-0 rounded-lg ring-1 ring-white/20" />
-      </div>
-      {!compact && (
-        <span className="font-display text-lg font-semibold tracking-tight">
-          Media<span className="gradient-text">Auth</span>
-        </span>
-      )}
+      <img
+        src={lockupSrc}
+        alt=""
+        width={LOCKUP_WIDTH}
+        height={LOCKUP_HEIGHT}
+        decoding="async"
+        className="block h-full w-full object-contain object-left"
+      />
     </div>
   );
 }

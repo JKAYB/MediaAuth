@@ -16,7 +16,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { submitScanFile } from "@/lib/api";
+import { submitScanFile, submitScanUrl } from "@/lib/api";
 import { scanKeys } from "@/features/scan/queryKeys";
 import { getLiveDemoSnapshot, isLiveDemo, subscribeLiveDemo } from "@/lib/demo-mode";
 
@@ -65,26 +65,42 @@ function ScanPage() {
       toast.message("Live demo uses sample scans only. Exit demo in the banner, then run a real scan.");
       return;
     }
-    if (tab === "url") {
-      toast.error("URL scans are not supported by the API yet.");
-      return;
-    }
-    const file = files[0];
-    if (!file) return;
-    if (files.length > 1) {
-      toast.message("Only the first file will be submitted (API accepts one file per request).");
-    }
     setPhase("uploading");
     setProgress(25);
     try {
-      const { id } = await submitScanFile(file);
+      let id: string;
+      if (tab === "url") {
+        const trimmed = url.trim();
+        if (trimmed.length < 8) {
+          toast.error("Enter a valid http(s) URL.");
+          setPhase("idle");
+          setProgress(0);
+          return;
+        }
+        setProgress(40);
+        const res = await submitScanUrl(trimmed);
+        id = res.id;
+      } else {
+        const file = files[0];
+        if (!file) {
+          setPhase("idle");
+          setProgress(0);
+          return;
+        }
+        if (files.length > 1) {
+          toast.message("Only the first file will be submitted (API accepts one file per request).");
+        }
+        setProgress(25);
+        const res = await submitScanFile(file);
+        id = res.id;
+      }
       await qc.invalidateQueries({ queryKey: scanKeys.all });
       setProgress(100);
       setPhase("done");
-      toast.success("Scan queued");
+      toast.success(tab === "url" ? "URL scan queued" : "Scan queued");
       setTimeout(() => navigate({ to: "/scans/$id", params: { id } }), 500);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Upload failed");
+      toast.error(e instanceof Error ? e.message : "Scan failed");
       setPhase("idle");
       setProgress(0);
     }
