@@ -90,7 +90,13 @@ export function AuthShell({ mode }: { mode: "login" | "signup" }) {
           style={{ animationDelay: "-2s" }}
         />
         <div className="relative z-10 flex h-full flex-col p-10">
-          <Logo />
+          <Link
+            to="/"
+            aria-label="MediaAuth home"
+            className="inline-flex w-fit rounded-lg outline-none ring-offset-background transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
+          >
+            <Logo />
+          </Link>
           <div className="mt-auto max-w-md">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -124,7 +130,13 @@ export function AuthShell({ mode }: { mode: "login" | "signup" }) {
       <div className="relative flex min-h-screen items-center justify-center px-6 py-12">
         <div className="lg:hidden">
           <div className="absolute left-6 top-6">
-            <Logo />
+            <Link
+              to="/"
+              aria-label="MediaAuth home"
+              className="inline-flex w-fit rounded-lg outline-none ring-offset-background transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Logo />
+            </Link>
           </div>
         </div>
 
@@ -195,13 +207,18 @@ export function AuthShell({ mode }: { mode: "login" | "signup" }) {
             <Field
               label="Password"
               hint={
-                isLogin ? <span className="text-muted-foreground">Min. 6 characters</span> : null
+                isLogin ? null : (
+                  <span className="max-w-[14rem] text-right text-muted-foreground">
+                    8+ chars, upper, lower, number
+                  </span>
+                )
               }
             >
               <div className="relative">
                 <input
                   required
-                  minLength={6}
+                  minLength={isLogin ? undefined : 8}
+                  maxLength={isLogin ? undefined : 200}
                   type={showPw ? "text" : "password"}
                   placeholder="••••••••"
                   className="auth-input pr-10"
@@ -223,7 +240,7 @@ export function AuthShell({ mode }: { mode: "login" | "signup" }) {
             <button
               type="submit"
               disabled={busy}
-              className="group relative mt-1 inline-flex h-10 w-full items-center justify-center gap-1.5 overflow-hidden rounded-lg bg-gradient-to-br from-primary to-accent text-sm font-semibold text-primary-foreground shadow-[0_0_24px_-6px_var(--primary)] transition active:scale-[0.99] disabled:opacity-60"
+              className="group relative mt-1 inline-flex h-10 w-full items-center justify-center gap-1.5 overflow-hidden rounded-lg bg-gradient-to-br from-primary to-accent text-sm font-semibold text-primary-foreground shadow-[0_0_24px_-6px_var(--primary)] transition active:scale-[0.99] disabled:opacity-60 cursor-pointer"
             >
               <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
               <ShieldCheck className="h-4 w-4" />

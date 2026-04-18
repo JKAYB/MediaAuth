@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { ArrowRight, ShieldCheck, Sparkles, Activity, Lock, Zap } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
+import LiquidEther from "@/components/liquid-ether/LiquidEther";
 import { enableLiveDemo } from "@/lib/demo-mode";
 
 export const Route = createFileRoute("/")({
@@ -22,6 +23,26 @@ function Landing() {
   return (
     <div className="relative min-h-screen overflow-hidden">
       <div className="grid-bg absolute inset-0 opacity-40 [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)]" />
+      <div className="pointer-events-none absolute inset-0 z-[1] opacity-[0.55] [mask-image:radial-gradient(ellipse_at_top,black,transparent_72%)]">
+        <LiquidEther
+          colors={["#6A7CFF", "#70E0F8", "#B05CFF"]}
+          mouseForce={15}
+          cursorSize={130}
+          isViscous={false}
+          viscous={30}
+          iterationsViscous={32}
+          iterationsPoisson={32}
+          resolution={0.5}
+          isBounce={false}
+          autoDemo
+          autoSpeed={0.65}
+          autoIntensity={2.2}
+          takeoverDuration={0.2}
+          autoResumeDelay={3000}
+          autoRampDuration={0.6}
+          className="!absolute inset-0"
+        />
+      </div>
       <div className="float pointer-events-none absolute -left-32 top-20 h-72 w-72 rounded-full bg-primary/30 blur-3xl" />
       <div
         className="float pointer-events-none absolute -right-32 top-40 h-72 w-72 rounded-full bg-accent/30 blur-3xl"
@@ -29,7 +50,13 @@ function Landing() {
       />
 
       <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-        <Logo />
+        <Link
+          to="/"
+          aria-label="MediaAuth home"
+          className="inline-flex w-fit rounded-lg outline-none ring-offset-background transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Logo />
+        </Link>
         <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">
           <a href="#features" className="hover:text-foreground">
             Features
@@ -49,7 +76,10 @@ function Landing() {
         </Link>
       </header>
 
-      <section className="relative z-10 mx-auto max-w-4xl px-6 pb-24 pt-16 text-center sm:pt-24">
+      <section
+        id="how"
+        className="relative z-10 mx-auto max-w-4xl px-6 pb-24 pt-16 text-center sm:pt-24"
+      >
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -64,9 +94,9 @@ function Landing() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.05 }}
-          className="mt-6 font-display text-5xl font-semibold leading-[1.05] tracking-tight sm:text-6xl md:text-7xl"
+          className="hero-headline-glow mt-6 font-display text-5xl font-semibold leading-[1.05] tracking-tight sm:text-6xl md:text-7xl"
         >
-          Trust, <span className="gradient-text">verified.</span>
+          Trust, <span className="gradient-text-animated">verified.</span>
         </motion.h1>
 
         <motion.p
@@ -181,7 +211,13 @@ function Landing() {
 
       <footer className="relative z-10 border-t border-border/60 py-8">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-6 sm:flex-row">
-          <Logo compact />
+          <Link
+            to="/"
+            aria-label="MediaAuth home"
+            className="inline-flex w-fit rounded-lg outline-none ring-offset-background transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Logo compact />
+          </Link>
           <p className="text-xs text-muted-foreground">
             © {new Date().getFullYear()} MediaAuth. All rights reserved.
           </p>

@@ -140,6 +140,12 @@
     color: var(--color-foreground);
   }
 
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
   body {
     background-image:
       radial-gradient(ellipse 80% 60% at 10% -10%, oklch(0.78 0.16 215 / 0.15), transparent 60%),
@@ -186,6 +192,43 @@
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+  }
+
+  /** Wider gradient + slow pan — use on short spans (e.g. hero “verified.”). */
+  @keyframes gradient-text-shift {
+    0%,
+    100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  .gradient-text-animated {
+    background: linear-gradient(
+      105deg,
+      oklch(0.84 0.15 210),
+      oklch(0.86 0.16 218),
+      oklch(0.78 0.19 265),
+      oklch(0.76 0.2 305),
+      oklch(0.8 0.18 255),
+      oklch(0.84 0.15 210)
+    );
+    background-size: 240% 240%;
+    background-position: 0% 50%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: gradient-text-shift 14s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .gradient-text-animated {
+      animation: none;
+      background-size: 100% 100%;
+      background-position: 0% 50%;
+    }
   }
 
   .gradient-border {
@@ -275,5 +318,28 @@
   }
   .float {
     animation: float 6s ease-in-out infinite;
+  }
+
+  /** Soft pulsing glow around headline glyphs (works with gradient-text clip). */
+  @keyframes hero-headline-glow {
+    0%,
+    100% {
+      filter: drop-shadow(0 0 16px color-mix(in oklab, var(--primary) 40%, transparent))
+        drop-shadow(0 0 36px color-mix(in oklab, var(--accent) 22%, transparent));
+    }
+    50% {
+      filter: drop-shadow(0 0 22px color-mix(in oklab, var(--primary) 52%, transparent))
+        drop-shadow(0 0 52px color-mix(in oklab, var(--accent) 30%, transparent));
+    }
+  }
+
+  .hero-headline-glow {
+    animation: hero-headline-glow 5s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-headline-glow {
+      animation: none;
+    }
   }
 }

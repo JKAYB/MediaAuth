@@ -42,7 +42,13 @@ function SidebarContent({
   return (
     <div className="flex h-full flex-col">
       <div className="px-5 py-5">
-        <Logo />
+        <Link
+          to="/"
+          aria-label="MediaAuth home"
+          className="inline-flex w-fit rounded-lg outline-none ring-offset-background transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Logo />
+        </Link>
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 px-3">
