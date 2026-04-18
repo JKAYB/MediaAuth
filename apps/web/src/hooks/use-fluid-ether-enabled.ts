@@ -1,8 +1,12 @@
 import { useSyncExternalStore } from "react";
 
+export type FluidEtherLandingMode = "off" | "lite" | "full";
+
 /**
- * Fluid WebGL (LiquidEther) is heavy on mobile GPUs. Disable when the user
- * prefers reduced motion or is on a touch-primary device (coarse pointer).
+ * Landing fluid background:
+ * - `off` — prefers reduced motion (static fallback).
+ * - `lite` — touch-primary devices: lighter sim + autoDemo for background motion.
+ * - `full` — desktop / fine pointer: full-quality sim.
  */
 function subscribe(onStoreChange: () => void) {
   const mqs = [
@@ -13,17 +17,17 @@ function subscribe(onStoreChange: () => void) {
   return () => mqs.forEach((mq) => mq.removeEventListener("change", onStoreChange));
 }
 
-function getSnapshot(): boolean {
-  if (typeof window === "undefined") return false;
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
-  if (window.matchMedia("(hover: none) and (pointer: coarse)").matches) return false;
-  return true;
+function getSnapshot(): FluidEtherLandingMode {
+  if (typeof window === "undefined") return "off";
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return "off";
+  if (window.matchMedia("(hover: none) and (pointer: coarse)").matches) return "lite";
+  return "full";
 }
 
-function getServerSnapshot(): boolean {
-  return false;
+function getServerSnapshot(): FluidEtherLandingMode {
+  return "off";
 }
 
-export function useFluidEtherEnabled(): boolean {
+export function useFluidEtherLandingMode(): FluidEtherLandingMode {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }

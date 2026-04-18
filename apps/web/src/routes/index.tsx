@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, ShieldCheck, Sparkles, Activity, Lock, Zap } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import LiquidEther from "@/components/liquid-ether/LiquidEther";
-import { useFluidEtherEnabled } from "@/hooks/use-fluid-ether-enabled";
+import { useFluidEtherLandingMode } from "@/hooks/use-fluid-ether-enabled";
 import { enableLiveDemo } from "@/lib/demo-mode";
 
 export const Route = createFileRoute("/")({
@@ -20,16 +20,49 @@ export const Route = createFileRoute("/")({
   component: Landing,
 });
 
+const fluidColors = ["#6A7CFF", "#70E0F8", "#B05CFF"] as const;
+
 function Landing() {
-  const fluidEtherEnabled = useFluidEtherEnabled();
+  const fluidMode = useFluidEtherLandingMode();
 
   return (
     <div className="relative min-h-screen overflow-hidden select-none">
       <div className="grid-bg absolute inset-0 opacity-40 [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)]" />
-      <div className="pointer-events-none absolute inset-0 z-[1] opacity-[0.55] [mask-image:radial-gradient(ellipse_at_top,black,transparent_72%)]">
-        {fluidEtherEnabled ? (
+      <div
+        className={
+          fluidMode === "lite"
+            ? "pointer-events-none absolute inset-0 z-[1] opacity-[0.48] [mask-image:radial-gradient(ellipse_at_top,black,transparent_72%)]"
+            : "pointer-events-none absolute inset-0 z-[1] opacity-[0.55] [mask-image:radial-gradient(ellipse_at_top,black,transparent_72%)]"
+        }
+      >
+        {fluidMode === "off" ? (
+          <div
+            className="absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_-10%,color-mix(in_oklab,var(--primary)_35%,transparent),transparent_55%),radial-gradient(90%_60%_at_100%_40%,color-mix(in_oklab,var(--accent)_28%,transparent),transparent_50%),radial-gradient(80%_50%_at_0%_60%,oklch(0.55_0.2_280_/_0.2),transparent_55%)]"
+            aria-hidden
+          />
+        ) : fluidMode === "lite" ? (
           <LiquidEther
-            colors={["#6A7CFF", "#70E0F8", "#B05CFF"]}
+            colors={[...fluidColors]}
+            mouseForce={8}
+            cursorSize={90}
+            isViscous={false}
+            viscous={24}
+            iterationsViscous={12}
+            iterationsPoisson={12}
+            resolution={0.22}
+            BFECC={false}
+            isBounce={false}
+            autoDemo
+            autoSpeed={0.72}
+            autoIntensity={2.6}
+            takeoverDuration={0.18}
+            autoResumeDelay={1200}
+            autoRampDuration={0.5}
+            className="!absolute inset-0"
+          />
+        ) : (
+          <LiquidEther
+            colors={[...fluidColors]}
             mouseForce={15}
             cursorSize={130}
             isViscous={false}
@@ -45,11 +78,6 @@ function Landing() {
             autoResumeDelay={3000}
             autoRampDuration={0.6}
             className="!absolute inset-0"
-          />
-        ) : (
-          <div
-            className="absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_-10%,color-mix(in_oklab,var(--primary)_35%,transparent),transparent_55%),radial-gradient(90%_60%_at_100%_40%,color-mix(in_oklab,var(--accent)_28%,transparent),transparent_50%),radial-gradient(80%_50%_at_0%_60%,oklch(0.55_0.2_280_/_0.2),transparent_55%)]"
-            aria-hidden
           />
         )}
       </div>
