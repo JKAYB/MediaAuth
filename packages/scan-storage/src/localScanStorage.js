@@ -68,10 +68,14 @@ class LocalScanStorage {
 
   /**
    * @param {string} storageKey
+   * @param {{ start: number; end: number }} [byteRange] inclusive start/end (bytes)
    * @returns {Promise<import('stream').Readable>}
    */
-  async getDownloadStream(storageKey) {
+  async getDownloadStream(storageKey, byteRange) {
     const abs = absolutePathForStorageKey(storageKey);
+    if (byteRange && Number.isFinite(byteRange.start) && Number.isFinite(byteRange.end)) {
+      return fsSync.createReadStream(abs, { start: byteRange.start, end: byteRange.end });
+    }
     return fsSync.createReadStream(abs);
   }
 

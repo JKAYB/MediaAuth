@@ -96,6 +96,10 @@ d("S3 scan storage (optional MinIO / S3 integration)", () => {
     const stream = await s3.getDownloadStream(storageKey);
     const out = await readStreamToBuffer(stream);
     assert.deepEqual(out, buf);
+
+    const rStream = await s3.getDownloadStream(storageKey, { start: 1, end: 3 });
+    const slice = await readStreamToBuffer(rStream);
+    assert.deepEqual(slice, buf.subarray(1, 4));
   });
 
   it("putBufferAtStorageKey preserves explicit storage_key and head returns size", async () => {

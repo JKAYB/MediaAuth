@@ -43,4 +43,22 @@ describe("local scan storage", () => {
     }
     assert.equal(Buffer.concat(chunks).toString("utf8"), "hello-object");
   });
+
+  it("getDownloadStream with byte range reads slice only", async () => {
+    const s = new LocalScanStorage();
+    const scanId = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+    const buf = Buffer.from("0123456789");
+    const { storageKey } = await s.saveUpload({
+      scanId,
+      buffer: buf,
+      originalName: "slice.bin",
+      contentType: "application/octet-stream"
+    });
+    const stream = await s.getDownloadStream(storageKey, { start: 3, end: 6 });
+    const chunks = [];
+    for await (const c of stream) {
+      chunks.push(c);
+    }
+    assert.equal(Buffer.concat(chunks).toString("utf8"), "3456");
+  });
 });

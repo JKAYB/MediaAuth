@@ -102,15 +102,19 @@ class S3ScanStorage {
 
   /**
    * @param {string} storageKey
+   * @param {{ start: number; end: number }} [byteRange] inclusive start/end (bytes); maps to HTTP Range
    * @returns {Promise<import('stream').Readable>}
    */
-  async getDownloadStream(storageKey) {
-    const out = await this.client.send(
-      new GetObjectCommand({
-        Bucket: this.bucket,
-        Key: storageKey
-      })
-    );
+  async getDownloadStream(storageKey, byteRange) {
+    /** @type {import('@aws-sdk/client-s3').GetObjectCommandInput} */
+    const input = {
+      Bucket: this.bucket,
+      Key: storageKey
+    };
+    if (byteRange && Number.isFinite(byteRange.start) && Number.isFinite(byteRange.end)) {
+      input.Range = `bytes=${byteRange.start}-${byteRange.end}`;
+    }
+    const out = await this.client.send(new GetObjectCommand(input));
     if (!out.Body) {
       throw new Error("S3 GetObject returned empty body");
     }
