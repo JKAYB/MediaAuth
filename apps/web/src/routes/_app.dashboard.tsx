@@ -170,7 +170,7 @@ function Dashboard() {
                   type="button"
                   onClick={() => setRange(p)}
                   className={cn(
-                    "rounded-md px-2.5 py-1 transition-colors",
+                    "cursor-pointer rounded-md px-2.5 py-1 transition-colors",
                     range === p
                       ? "bg-card font-medium ring-1 ring-border"
                       : "text-muted-foreground hover:text-foreground",
@@ -192,7 +192,11 @@ function Dashboard() {
               Loading chart…
             </div>
           ) : (
-            <ActivityChart points={activityQuery.data?.points ?? []} />
+            <ActivityChart
+              points={activityQuery.data?.points ?? []}
+              summary={activityQuery.data?.summary ?? null}
+              rangeDayCount={Number(rangeDayLabel(range))}
+            />
           )}
         </motion.div>
 
