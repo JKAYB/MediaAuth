@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import {
@@ -16,6 +16,13 @@ import {
 import { Logo } from "@/components/brand/Logo";
 import LiquidEther from "@/components/liquid-ether/LiquidEther";
 import { useFluidEtherLandingMode } from "@/hooks/use-fluid-ether-enabled";
+import {
+  LANDING_FLUID_FULL_BASE,
+  LANDING_FLUID_LITE_BASE,
+  LANDING_SCROLL_IDLE_MS,
+  LANDING_STATIC_FLUID_FALLBACK_CLASS,
+  landingFluidScrollTuning,
+} from "@/lib/landing-fluid-ether-props";
 import { enableLiveDemo } from "@/lib/demo-mode";
 
 export const Route = createFileRoute("/how-it-works")({
@@ -94,6 +101,46 @@ const stats = [
 
 function HowItWorks() {
   const fluidMode = useFluidEtherLandingMode();
+  const [showFluid, setShowFluid] = useState(false);
+  const [isScrolling, setIsScrolling] = useState(false);
+  const scrollIdleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (fluidMode === "off") {
+      setShowFluid(false);
+      return;
+    }
+    let raf = 0;
+    raf = requestAnimationFrame(() => {
+      setShowFluid(true);
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+    };
+  }, [fluidMode]);
+
+  useEffect(() => {
+    const onScroll = () => {
+      setIsScrolling(true);
+      if (scrollIdleRef.current) clearTimeout(scrollIdleRef.current);
+      scrollIdleRef.current = setTimeout(() => {
+        scrollIdleRef.current = null;
+        setIsScrolling(false);
+      }, LANDING_SCROLL_IDLE_MS);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (scrollIdleRef.current) clearTimeout(scrollIdleRef.current);
+    };
+  }, []);
+
+  const liquidEtherProps = useMemo(() => {
+    if (fluidMode === "off") return null;
+    const base = fluidMode === "lite" ? LANDING_FLUID_LITE_BASE : LANDING_FLUID_FULL_BASE;
+    const scrollPatch = isScrolling ? landingFluidScrollTuning(fluidMode) : {};
+    return { ...base, ...scrollPatch, colors: [...fluidColors] };
+  }, [fluidMode, isScrolling]);
 
   return (
     <div
@@ -116,55 +163,18 @@ function HowItWorks() {
             : "pointer-events-none absolute inset-0 z-[1] opacity-[0.55] [mask-image:radial-gradient(ellipse_at_top,black,transparent_72%)]"
         }
       >
-        {fluidMode === "off" ? (
-          <div
-            className="absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_-10%,color-mix(in_oklab,var(--primary)_35%,transparent),transparent_55%),radial-gradient(90%_60%_at_100%_40%,color-mix(in_oklab,var(--accent)_28%,transparent),transparent_50%),radial-gradient(80%_50%_at_0%_60%,oklch(0.55_0.2_280_/_0.2),transparent_55%)]"
-            aria-hidden
-          />
-        ) : fluidMode === "lite" ? (
-          <LiquidEther
-            colors={[...fluidColors]}
-            mouseForce={8}
-            cursorSize={90}
-            isViscous={false}
-            viscous={24}
-            iterationsViscous={12}
-            iterationsPoisson={12}
-            resolution={0.22}
-            BFECC={false}
-            isBounce={false}
-            autoDemo
-            autoSpeed={0.72}
-            autoIntensity={2.6}
-            takeoverDuration={0.18}
-            autoResumeDelay={1200}
-            autoRampDuration={0.5}
-            className="pointer-events-none !absolute inset-0"
-          />
+        {fluidMode === "off" || !showFluid || !liquidEtherProps ? (
+          <div className={LANDING_STATIC_FLUID_FALLBACK_CLASS} aria-hidden />
         ) : (
           <LiquidEther
-            colors={[...fluidColors]}
-            mouseForce={15}
-            cursorSize={130}
-            isViscous={false}
-            viscous={30}
-            iterationsViscous={32}
-            iterationsPoisson={32}
-            resolution={0.5}
-            isBounce={false}
-            autoDemo
-            autoSpeed={0.65}
-            autoIntensity={2.2}
-            takeoverDuration={0.2}
-            autoResumeDelay={3000}
-            autoRampDuration={0.6}
+            {...liquidEtherProps}
             className="pointer-events-none !absolute inset-0"
           />
         )}
       </div>
-      <div className="float pointer-events-none absolute -left-32 top-20 h-72 w-72 rounded-full bg-primary/30 blur-3xl" />
+      <div className="float pointer-events-none absolute -left-32 top-20 h-72 w-72 rounded-full bg-primary/30 blur-2xl" />
       <div
-        className="float pointer-events-none absolute -right-32 top-40 h-72 w-72 rounded-full bg-accent/30 blur-3xl"
+        className="float pointer-events-none absolute -right-32 top-40 h-72 w-72 rounded-full bg-accent/30 blur-2xl"
         style={{ animationDelay: "-3s" }}
       />
 
@@ -203,9 +213,9 @@ function HowItWorks() {
 
       <section className="relative z-10 mx-auto max-w-4xl px-6 pb-16 pt-12 text-center sm:pb-20 sm:pt-16">
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.4 }}
           className="mx-auto inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/60 px-3 py-1 text-xs backdrop-blur"
         >
           <Sparkles className="h-3 w-3 text-primary" />
@@ -213,18 +223,18 @@ function HowItWorks() {
         </motion.div>
 
         <motion.h1
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.05 }}
+          transition={{ duration: 0.48, delay: 0.04 }}
           className="hero-headline-glow mt-6 font-display text-5xl font-semibold leading-[1.05] tracking-tight sm:text-6xl md:text-7xl"
         >
           How <span className="gradient-text-animated">MediaAuth</span> works
         </motion.h1>
 
         <motion.p
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.12 }}
+          transition={{ duration: 0.48, delay: 0.1 }}
           className="mx-auto mt-5 max-w-2xl text-base text-muted-foreground sm:text-lg"
         >
           From upload to authenticity report, MediaAuth analyzes media through a fast multi-layer detection
@@ -232,9 +242,9 @@ function HowItWorks() {
         </motion.p>
 
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+          transition={{ duration: 0.48, delay: 0.16 }}
           className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row"
         >
           <Link
@@ -271,8 +281,8 @@ function HowItWorks() {
               initial={{ opacity: 0, y: 14 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.45, delay: i * 0.06 }}
-              className="relative overflow-hidden rounded-xl border border-border/60 bg-card/60 p-5 backdrop-blur-xl elevated"
+              transition={{ duration: 0.4, delay: i * 0.05 }}
+              className="relative overflow-hidden rounded-xl border border-border/60 bg-card/60 p-5 backdrop-blur-lg elevated"
             >
               <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-gradient-to-br from-primary/25 to-accent/20 blur-2xl" />
               <div className="relative">
@@ -309,8 +319,8 @@ function HowItWorks() {
               initial={{ opacity: 0, y: 14 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.45, delay: i * 0.05 }}
-              className="rounded-xl border border-border/60 bg-card/60 p-5 backdrop-blur-xl"
+              transition={{ duration: 0.4, delay: i * 0.04 }}
+              className="rounded-xl border border-border/60 bg-card/60 p-5 backdrop-blur-lg"
             >
               <div className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 text-primary ring-1 ring-primary/30">
                 <t.icon className="h-4 w-4" />
@@ -327,8 +337,8 @@ function HowItWorks() {
           initial={{ opacity: 0, y: 12 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="rounded-2xl border border-border/60 bg-card/50 p-6 backdrop-blur-xl elevated sm:p-8"
+          transition={{ duration: 0.44 }}
+          className="rounded-2xl border border-border/60 bg-card/50 p-6 backdrop-blur-lg elevated sm:p-8"
         >
           <p className="text-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Pipeline at a glance
@@ -360,7 +370,7 @@ function HowItWorks() {
               initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: i * 0.06 }}
+              transition={{ duration: 0.36, delay: i * 0.05 }}
               className={`rounded-xl bg-gradient-to-br ${s.grad} p-5 ring-1 ring-border backdrop-blur-sm`}
             >
               <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -377,8 +387,8 @@ function HowItWorks() {
           initial={{ opacity: 0, y: 14 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="rounded-2xl border border-border/60 bg-card/60 p-8 backdrop-blur-xl elevated sm:p-10"
+          transition={{ duration: 0.44 }}
+          className="rounded-2xl border border-border/60 bg-card/60 p-8 backdrop-blur-lg elevated sm:p-10"
         >
           <h2 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">
             Verify suspicious media with confidence
