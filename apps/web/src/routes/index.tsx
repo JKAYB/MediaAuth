@@ -26,7 +26,18 @@ function Landing() {
   const fluidMode = useFluidEtherLandingMode();
 
   return (
-    <div className="relative min-h-screen overflow-hidden select-none">
+    <div
+      id="landing-page-root"
+      className="relative min-h-screen overflow-hidden select-none"
+    >
+      <style>{`
+@media (hover: none) and (pointer: coarse) {
+  #landing-page-root .mobile-tap-fix {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+`}</style>
       <div className="grid-bg absolute inset-0 opacity-40 [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)]" />
       <div
         className={
@@ -58,7 +69,7 @@ function Landing() {
             takeoverDuration={0.18}
             autoResumeDelay={1200}
             autoRampDuration={0.5}
-            className="!absolute inset-0"
+            className="pointer-events-none !absolute inset-0"
           />
         ) : (
           <LiquidEther
@@ -77,7 +88,7 @@ function Landing() {
             takeoverDuration={0.2}
             autoResumeDelay={3000}
             autoRampDuration={0.6}
-            className="!absolute inset-0"
+            className="pointer-events-none !absolute inset-0"
           />
         )}
       </div>
@@ -91,7 +102,7 @@ function Landing() {
         <Link
           to="/"
           aria-label="MediaAuth home"
-          className="inline-flex w-fit touch-manipulation rounded-lg outline-none ring-offset-background transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring [-webkit-tap-highlight-color:transparent]"
+          className="mobile-tap-fix inline-flex w-fit touch-manipulation rounded-lg outline-none ring-offset-background transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring [-webkit-tap-highlight-color:transparent]"
         >
           <Logo />
         </Link>
@@ -108,7 +119,7 @@ function Landing() {
         </nav>
         <Link
           to="/signup"
-          className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-primary to-accent px-3 py-1.5 text-sm font-semibold text-primary-foreground shadow-[0_0_24px_-6px_var(--primary)] transition hover:scale-[1.02]"
+          className="mobile-tap-fix inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-primary to-accent px-3 py-1.5 text-sm font-semibold text-primary-foreground shadow-[0_0_24px_-6px_var(--primary)] transition hover:scale-[1.02]"
         >
           Get started <ArrowRight className="h-3.5 w-3.5" />
         </Link>
@@ -155,7 +166,7 @@ function Landing() {
         >
           <Link
             to="/signup"
-            className="group inline-flex h-11 items-center gap-2 rounded-lg bg-gradient-to-br from-primary to-accent px-5 text-sm font-semibold text-primary-foreground shadow-[0_0_32px_-8px_var(--primary)] transition hover:scale-[1.02]"
+            className="mobile-tap-fix group inline-flex h-11 items-center gap-2 rounded-lg bg-gradient-to-br from-primary to-accent px-5 text-sm font-semibold text-primary-foreground shadow-[0_0_32px_-8px_var(--primary)] transition hover:scale-[1.02]"
           >
             Start scanning free
             <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
@@ -163,7 +174,7 @@ function Landing() {
           <Link
             to="/dashboard"
             onClick={() => enableLiveDemo()}
-            className="inline-flex h-11 items-center rounded-lg border border-border bg-card/60 px-5 text-sm font-medium backdrop-blur transition hover:bg-card"
+            className="mobile-tap-fix inline-flex h-11 items-center rounded-lg border border-border bg-card/60 px-5 text-sm font-medium backdrop-blur transition hover:bg-card"
           >
             View live demo
           </Link>
@@ -252,7 +263,7 @@ function Landing() {
           <Link
             to="/"
             aria-label="MediaAuth home"
-            className="inline-flex w-fit touch-manipulation rounded-lg outline-none ring-offset-background transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring [-webkit-tap-highlight-color:transparent]"
+            className="mobile-tap-fix inline-flex w-fit touch-manipulation rounded-lg outline-none ring-offset-background transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring [-webkit-tap-highlight-color:transparent]"
           >
             <Logo compact />
           </Link>
