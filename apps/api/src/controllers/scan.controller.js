@@ -11,6 +11,10 @@ const {
 } = require("../services/scanAnalytics.service");
 
 const MAX_URL_LEN = 2048;
+const {
+  buildContentDisposition,
+  wantsAttachmentDownload
+} = require("../utils/contentDisposition.util");
 
 function parsePagination(query) {
   const page = Number.parseInt(query.page, 10);
@@ -87,6 +91,7 @@ async function getScanResult(req, res, next) {
 async function streamScanMedia(req, res, next) {
   try {
     const rangeHeader = req.get("Range");
+    const attachment = wantsAttachmentDownload(req.query && req.query.download);
     const result = await getScanMediaForUser({
       scanId: req.params.id,
       userId: req.user.id,
@@ -112,7 +117,10 @@ async function streamScanMedia(req, res, next) {
 
     res.setHeader("Content-Type", result.mimeType);
     res.setHeader("Cache-Control", "private, max-age=120");
-    res.setHeader("Content-Disposition", "inline");
+    res.setHeader(
+      "Content-Disposition",
+      buildContentDisposition(attachment ? "attachment" : "inline", result.filename)
+    );
     res.setHeader("Accept-Ranges", "bytes");
     res.setHeader("Content-Length", String(result.contentLength));
     if (result.isPartial) {

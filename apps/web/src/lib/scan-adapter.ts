@@ -112,6 +112,10 @@ export function apiScanToUiScan(row: ApiScanRow): Scan {
     mimeType: row.mime_type || undefined,
     previewUrl,
     canFetchMedia,
+    fileSizeBytes:
+      row.file_size_bytes != null && Number.isFinite(Number(row.file_size_bytes))
+        ? Math.trunc(Number(row.file_size_bytes))
+        : undefined,
     detections,
     metadata,
     timeline,

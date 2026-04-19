@@ -2,6 +2,7 @@ import { FileText } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { apiBase } from "@/lib/api";
 import type { MediaKind } from "@/lib/mock-data";
+import type { StrictUploadPreviewKind } from "@/lib/scan-media";
 import { getToken } from "@/lib/auth-storage";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +21,11 @@ export type ScanMediaPreviewProps = {
   canFetchMedia?: boolean;
   mediaKind: MediaKind;
   liveDemo: boolean;
+  /**
+   * For authenticated uploads: strict preview kind, or `null` if bytes exist but in-browser preview is skipped (file card).
+   * Omit when `canFetchMedia` is false or `liveDemo` is true.
+   */
+  uploadPreviewKind?: StrictUploadPreviewKind | null;
 };
 
 export function ScanMediaPreview({
@@ -29,17 +35,20 @@ export function ScanMediaPreview({
   canFetchMedia,
   mediaKind,
   liveDemo,
+  uploadPreviewKind,
 }: ScanMediaPreviewProps) {
   const mime = resolvedMime(mimeType, mediaKind);
-  const isImage = mime.startsWith("image/");
-  const isVideo = mime.startsWith("video/");
-  const canPreview = isImage || isVideo;
+  const legacyIsImage = mime.startsWith("image/");
+  const legacyIsVideo = mime.startsWith("video/");
+  const legacyDirectPreview = legacyIsImage || legacyIsVideo;
 
   const directUrl = previewUrl?.trim() || null;
-  const useAuthBlob = Boolean(!liveDemo && canFetchMedia && canPreview);
   const useDirectUrl = Boolean(
-    canPreview && directUrl && (liveDemo || !canFetchMedia),
+    legacyDirectPreview && directUrl && (liveDemo || !canFetchMedia),
   );
+
+  const useAuthBlob = Boolean(!liveDemo && canFetchMedia && uploadPreviewKind != null);
+  const useUploadFileCard = Boolean(!liveDemo && canFetchMedia && uploadPreviewKind === null);
 
   const blobRef = useRef<string | null>(null);
   const [blobSrc, setBlobSrc] = useState<string | null>(null);
@@ -53,7 +62,7 @@ export function ScanMediaPreview({
   useEffect(() => {
     setIntrinsicReady(false);
     setMediaFailed(false);
-  }, [scanId, directUrl, blobSrc, useDirectUrl, useAuthBlob]);
+  }, [scanId, directUrl, blobSrc, useDirectUrl, useAuthBlob, uploadPreviewKind]);
 
   useEffect(() => {
     if (!useAuthBlob) {
@@ -118,14 +127,15 @@ export function ScanMediaPreview({
     Boolean(renderUrl) && !mediaFailed && !intrinsicReady && (fetchPhase === "done" || useDirectUrl);
   const showSkeleton = awaitingBlob || awaitingDecode;
 
-  if (!canPreview) {
+  if (useUploadFileCard) {
     return (
       <div className="absolute inset-0 z-0 flex min-w-0 flex-col items-center justify-center gap-2 px-3 text-center">
         <div className="mx-auto grid h-11 w-11 shrink-0 place-items-center rounded-full bg-card/80 ring-1 ring-border backdrop-blur sm:h-14 sm:w-14">
           <FileText className="h-5 w-5 text-muted-foreground sm:h-6 sm:w-6" />
         </div>
         <p className="max-w-full text-xs leading-relaxed text-muted-foreground sm:text-sm">
-          No media available for this scan
+          Preview isn&apos;t available for this file type. Use{" "}
+          <span className="font-medium text-foreground">Download original</span> below.
         </p>
       </div>
     );
@@ -181,6 +191,12 @@ export function ScanMediaPreview({
     );
   }
 
+  const showImage =
+    (useDirectUrl && legacyIsImage) || (useAuthBlob && uploadPreviewKind === "image");
+  const showVideo =
+    (useDirectUrl && legacyIsVideo) || (useAuthBlob && uploadPreviewKind === "video");
+  const showAudio = useAuthBlob && uploadPreviewKind === "audio";
+
   return (
     <div className="absolute inset-0 z-0 flex min-w-0 items-center justify-center overflow-hidden p-2 sm:p-3">
       {showSkeleton && (
@@ -189,7 +205,7 @@ export function ScanMediaPreview({
           aria-hidden
         />
       )}
-      {isImage && (
+      {showImage && (
         <img
           src={renderUrl}
           alt="Scan preview"
@@ -208,7 +224,7 @@ export function ScanMediaPreview({
           }}
         />
       )}
-      {isVideo && (
+      {showVideo && (
         <video
           key={renderUrl}
           controls
@@ -229,6 +245,27 @@ export function ScanMediaPreview({
         >
           <source src={renderUrl} type={mime} />
         </video>
+      )}
+      {showAudio && (
+        <audio
+          key={renderUrl}
+          controls
+          className={cn(
+            "relative z-[1] w-full max-w-md transition-opacity duration-200",
+            intrinsicReady ? "opacity-100" : "opacity-0",
+          )}
+          preload="metadata"
+          onLoadedData={() => {
+            setIntrinsicReady(true);
+            setMediaFailed(false);
+          }}
+          onError={() => {
+            setMediaFailed(true);
+            setIntrinsicReady(false);
+          }}
+        >
+          <source src={renderUrl} type={mime} />
+        </audio>
       )}
     </div>
   );

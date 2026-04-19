@@ -574,6 +574,22 @@ d("API scan integration", () => {
       assert.equal(buf.length, totalLen);
       assert.equal(buf.compare(MIN_PNG), 0);
 
+      const cdInline = String(mediaRes.headers.get("content-disposition") || "");
+      assert.ok(/inline/i.test(cdInline), cdInline);
+      assert.ok(/filename=/i.test(cdInline), cdInline);
+      assert.ok(/e2e\.png/i.test(cdInline), cdInline);
+
+      const mediaDl = await fetch(`${baseUrl}/scan/${scanId}/media?download=1`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      assert.equal(mediaDl.status, 200);
+      const cdAtt = String(mediaDl.headers.get("content-disposition") || "");
+      assert.ok(/attachment/i.test(cdAtt), cdAtt);
+      assert.ok(/filename=/i.test(cdAtt), cdAtt);
+      const dlBuf = Buffer.from(await mediaDl.arrayBuffer());
+      assert.equal(dlBuf.length, totalLen);
+      assert.equal(dlBuf.compare(MIN_PNG), 0);
+
       const r206 = await fetch(`${baseUrl}/scan/${scanId}/media`, {
         headers: { Authorization: `Bearer ${token}`, Range: "bytes=0-3" }
       });

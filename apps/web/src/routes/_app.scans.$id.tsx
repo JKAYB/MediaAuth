@@ -9,14 +9,19 @@ import {
   Activity,
   ListChecks,
   AlertTriangle,
+  Loader2,
 } from "lucide-react";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { toast } from "sonner";
 import { ScanMediaPreview } from "@/components/scan/ScanMediaPreview";
 import { StatusBadge } from "@/components/ui-ext/StatusBadge";
 import { useScanByIdQuery } from "@/features/scan/hooks";
 import { getLiveDemoSnapshot, subscribeLiveDemo } from "@/lib/demo-mode";
 import { scans as demoScans, timeAgo, type Scan } from "@/lib/mock-data";
+import { downloadScanOriginal } from "@/lib/scan-media-download";
+import { formatFileSize, strictUploadPreviewKind } from "@/lib/scan-media";
 import { cn } from "@/lib/utils";
+import { debounce } from "lodash";
 
 export const Route = createFileRoute("/_app/scans/$id")({
   head: () => ({
@@ -43,6 +48,29 @@ function ScanDetail() {
   const { id } = Route.useParams();
   const liveDemo = useSyncExternalStore(subscribeLiveDemo, getLiveDemoSnapshot, () => false);
   const rowQuery = useScanByIdQuery(id, !liveDemo);
+  const [downloadBusy, setDownloadBusy] = useState(false);
+
+  const debouncedDownload = useMemo(
+    () =>
+      debounce(async (scanId: string, title: string) => {
+        setDownloadBusy(true);
+        try {
+          await downloadScanOriginal(scanId, title);
+          toast.success("Download started");
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : "Download failed");
+        } finally {
+          setDownloadBusy(false);
+        }
+      }, 800, { leading: true, trailing: false }),
+    []
+  );
+
+  useEffect(() => {
+    return () => {
+      debouncedDownload.cancel();
+    };
+  }, [debouncedDownload]);
 
   const demoScan = useMemo(
     () => (liveDemo ? demoScans.find((s) => s.id === id) ?? null : null),
@@ -110,6 +138,9 @@ function ScanDetail() {
     );
   }
 
+  const uploadPreviewKind =
+    !liveDemo && scan.canFetchMedia ? strictUploadPreviewKind(scan.mimeType) : undefined;
+
   const verdictColor =
     scan.status === "safe"
       ? "from-success/30 to-success/0 ring-success/30 text-success"
@@ -169,9 +200,6 @@ function ScanDetail() {
                   </span>
                 )}
               </div>
-              {/* <span className="block w-full min-w-0 max-w-full break-all font-mono text-[11px] leading-snug text-muted-foreground/90 sm:inline sm:w-auto sm:text-xs">
-                {scan.id}
-              </span> */}
             </div>
             <h1 className="break-words font-display text-lg font-semibold leading-tight tracking-tight sm:text-2xl md:text-3xl">
               {scan.title}
@@ -199,6 +227,34 @@ function ScanDetail() {
           <div className="mb-3.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Media preview
           </div>
+
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              {scan.status === "flagged" ? (
+                <div className="inline-flex items-center gap-1.5 rounded-md bg-destructive/20 px-2.5 py-1.5 text-xs text-destructive ring-1 ring-destructive/30 backdrop-blur">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  <span className="min-w-0 break-words">Manipulation detected</span>
+                </div>
+              ) : null}
+            </div>
+
+            {scan.canFetchMedia && !liveDemo ? (
+              <button
+                type="button"
+                disabled={downloadBusy}
+                aria-label="Download original"
+                className="mobile-tap-fix inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-card/70 text-foreground transition hover:bg-card disabled:opacity-60"
+                onClick={() => debouncedDownload(scan.id, scan.title)}
+              >
+                {downloadBusy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <Download className="h-4 w-4" aria-hidden />
+                )}
+              </button>
+            ) : null}
+          </div>
+
           <div className="grid-bg relative aspect-video w-full max-w-full min-w-0 overflow-hidden rounded-xl bg-gradient-to-br from-muted/40 to-card ring-1 ring-border">
             <ScanMediaPreview
               scanId={scan.id}
@@ -207,14 +263,9 @@ function ScanDetail() {
               canFetchMedia={scan.canFetchMedia}
               mediaKind={scan.kind}
               liveDemo={liveDemo}
+              uploadPreviewKind={uploadPreviewKind}
             />
-            {scan.status === "flagged" && (
-              <div className="absolute left-2 right-2 top-2 flex max-w-none items-center gap-1.5 rounded-md bg-destructive/20 px-2 py-1.5 text-[10px] leading-tight text-destructive ring-1 ring-destructive/30 backdrop-blur sm:left-4 sm:right-auto sm:top-4 sm:text-xs">
-                <AlertTriangle className="h-3 w-3 shrink-0" />
-                <span className="min-w-0 break-words">Manipulation detected</span>
-              </div>
-            )}
-          </div>
+          </div> 
         </motion.div>
 
         <motion.div

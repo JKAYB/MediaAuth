@@ -16,6 +16,8 @@ export interface Scan {
   previewUrl?: string | null;
   /** Upload has stored bytes — real app loads via authenticated GET /scan/:id/media. */
   canFetchMedia?: boolean;
+  /** Original file size in bytes when known (API `file_size_bytes`). */
+  fileSizeBytes?: number;
   detections: { label: string; score: number }[];
   metadata: { key: string; value: string }[];
   timeline: { time: string; event: string }[];

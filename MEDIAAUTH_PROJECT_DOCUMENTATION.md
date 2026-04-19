@@ -6,7 +6,7 @@ For day-to-day env vars, runbooks, and operations, see **[`docs/OPERATIONS.md`](
 
 ---
 
-## 1. Project Overview
+## 1. Project Overview˝
 
 ### What MediaAuth is
 
