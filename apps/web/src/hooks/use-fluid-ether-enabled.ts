@@ -49,8 +49,8 @@ function computeFluidMode(): FluidEtherLandingMode {
     (typeof cores === "number" && cores <= 4) || (typeof memGb === "number" && memGb < 8);
 
   if (w < 1280) {
-    // return weakSevere ? "off" : "lite";
-    return "lite";
+    return weakSevere ? "off" : "lite";
+    // return "lite";
   }
 
   if (weakModerate) {
