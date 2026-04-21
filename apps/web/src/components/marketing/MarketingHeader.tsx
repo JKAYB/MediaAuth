@@ -40,15 +40,15 @@ export function MarketingHeader({ currentPage }: MarketingHeaderProps) {
             </Link>
           )}
           {howCurrent ? (
-            <span className="font-medium text-foreground" aria-current="page">
+            <span className="font-medium text-foreground whitespace-nowrap" aria-current="page">
               How it works
             </span>
           ) : (
-            <Link to="/how-it-works" className="hover:text-foreground">
+            <Link to="/how-it-works" className="hover:text-foreground whitespace-nowrap">
               How it works
             </Link>
           )}
-          <Link to="/login" className="hover:text-foreground">
+          <Link to="/login" className="hover:text-foreground whitespace-nowrap">
             Sign in
           </Link>
           <ThemeToggle />
@@ -60,9 +60,6 @@ export function MarketingHeader({ currentPage }: MarketingHeaderProps) {
             Sign in
           </Link>
         </div>
-        {/* <Link to="/signup" className={`${headerCtaClassName} hidden md:inline-flex`}>
-          Get started <ArrowRight className="h-3.5 w-3.5" />
-        </Link> */}
       </div>
     </header>
   );
