@@ -12,7 +12,19 @@ const {
   getStorageForProvider,
   resetScanObjectStorageSingletonForTests
 } = require("./factory");
-const { safeOriginalSegment, buildObjectKey } = require("./keyUtil");
+const {
+  safeOriginalSegment,
+  buildObjectKey,
+  assertUuid,
+  extensionForMimeType,
+  buildStructuredScanRelativeKey,
+  applyObjectKeyPrefix,
+  stripObjectKeyPrefix,
+  isStructuredOriginalScanRelativeKey,
+  isStructuredOriginalScanStorageKey,
+  plannedStructuredS3StorageKey,
+  MIME_TO_EXT
+} = require("./keyUtil");
 
 module.exports = {
   LocalScanStorage,
@@ -28,5 +40,14 @@ module.exports = {
   getStorageForProvider,
   resetScanObjectStorageSingletonForTests,
   safeOriginalSegment,
-  buildObjectKey
+  buildObjectKey,
+  assertUuid,
+  extensionForMimeType,
+  buildStructuredScanRelativeKey,
+  applyObjectKeyPrefix,
+  stripObjectKeyPrefix,
+  isStructuredOriginalScanRelativeKey,
+  isStructuredOriginalScanStorageKey,
+  plannedStructuredS3StorageKey,
+  MIME_TO_EXT
 };

@@ -4,6 +4,7 @@ const path = require("path");
 const fs = require("fs/promises");
 
 const { buildS3ObjectKeyFromLegacyLocalStorageKey, normalizeUploadStorageProvider } = require("./migrateLocalUploadsToS3.lib");
+const { buildStructuredScanRelativeKey, applyObjectKeyPrefix } = require("@media-auth/scan-storage");
 
 /**
  * @typedef {'local'|'s3'|'all'} ProviderFilter
@@ -24,8 +25,13 @@ const { buildS3ObjectKeyFromLegacyLocalStorageKey, normalizeUploadStorageProvide
  * @property {ProviderFilter} onlyProvider
  */
 
+const LEGACY_FLAT_UPLOAD_REL_RE = /^[0-9a-fA-F-]{36}\/[^\\/]+$/;
+const STRUCTURED_UPLOAD_REL_RE =
+  /^scans\/users\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(original|derived|metadata)\/[A-Za-z0-9._-]+$/i;
+
 /**
- * Strip OBJECT_STORAGE_PREFIX from a DB `storage_key` when present; return legacy `uuid/file` or invalid.
+ * Strip OBJECT_STORAGE_PREFIX from a DB `storage_key` when present; return relative upload path or invalid.
+ * Accepts legacy flat `uuid/file` or structured `scans/users/...`.
  * @param {string} dbStorageKey
  * @param {string} objectStoragePrefix
  * @returns {{ ok: true; legacyRelative: string } | { ok: false; reason: string }}
@@ -41,10 +47,10 @@ function extractLegacyLocalRelativeKey(dbStorageKey, objectStoragePrefix) {
   if (normalizedPref && sk.startsWith(normalizedPref)) {
     rel = sk.slice(normalizedPref.length);
   }
-  if (!/^[0-9a-fA-F-]{36}\/[^\\/]+$/.test(rel)) {
-    return { ok: false, reason: "legacy_key_shape_mismatch" };
+  if (LEGACY_FLAT_UPLOAD_REL_RE.test(rel) || STRUCTURED_UPLOAD_REL_RE.test(rel)) {
+    return { ok: true, legacyRelative: rel };
   }
-  return { ok: true, legacyRelative: rel };
+  return { ok: false, reason: "legacy_key_shape_mismatch" };
 }
 
 /**
@@ -288,41 +294,38 @@ async function loadReferencedLegacyRelativeKeys(pool, objectStoragePrefix) {
  * @returns {Promise<{ orphans: { relative: string; absolute: string }[]; error: string | null }>}
  */
 async function listOrphanLocalFilesUnderUploadBase(uploadRootAbs, referencedLegacyRelativeKeys) {
-  const orphans = [];
-  let entries;
+  /** @type {{ relative: string; absolute: string }[]} */
+  const allFiles = [];
+
+  async function walk(absDir, relParts) {
+    let ents;
+    try {
+      ents = await fs.readdir(absDir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const ent of ents) {
+      const name = ent.name;
+      const nextAbs = path.join(absDir, name);
+      const nextRel = relParts.length ? `${relParts.join("/")}/${name}` : name;
+      if (ent.isDirectory()) {
+        await walk(nextAbs, [...relParts, name]);
+      } else if (ent.isFile()) {
+        allFiles.push({ relative: nextRel, absolute: nextAbs });
+      }
+    }
+  }
+
   try {
-    entries = await fs.readdir(uploadRootAbs, { withFileTypes: true });
+    await walk(uploadRootAbs, []);
   } catch (e) {
     return {
-      orphans,
+      orphans: [],
       error: String(/** @type {{ message?: string }} */ (e).message || e)
     };
   }
-  for (const ent of entries) {
-    if (!ent.isDirectory()) {
-      continue;
-    }
-    const scanIdDir = ent.name;
-    if (!/^[0-9a-fA-F-]{36}$/.test(scanIdDir)) {
-      continue;
-    }
-    const dirPath = path.join(uploadRootAbs, scanIdDir);
-    let files;
-    try {
-      files = await fs.readdir(dirPath, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    for (const f of files) {
-      if (!f.isFile()) {
-        continue;
-      }
-      const rel = `${scanIdDir}/${f.name}`;
-      if (!referencedLegacyRelativeKeys.has(rel)) {
-        orphans.push({ relative: rel, absolute: path.join(dirPath, f.name) });
-      }
-    }
-  }
+
+  const orphans = allFiles.filter((f) => !referencedLegacyRelativeKeys.has(f.relative));
   return { orphans, error: null };
 }
 

@@ -240,6 +240,10 @@ d("API + worker upload with OBJECT_STORAGE_PROVIDER=s3 (optional)", () => {
     assert.equal(rows[0].source_type, "upload");
     assert.equal(rows[0].storage_provider, "s3");
     assert.ok(rows[0].storage_key && String(rows[0].storage_key).length > 0);
+    assert.ok(
+      String(rows[0].storage_key).includes("scans/users/") && String(rows[0].storage_key).includes(String(userId)),
+      "structured S3 storage key"
+    );
 
     await waitForScanStatus(pool, scanId, "completed");
 

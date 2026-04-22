@@ -70,9 +70,11 @@ d("S3 scan storage (optional MinIO / S3 integration)", () => {
 
   it("saveUpload then head and download stream roundtrip", async () => {
     const s3 = new S3ScanStorage();
+    const userId = randomUUID();
     const scanId = randomUUID();
     const buf = Buffer.from(`s3-it-${Date.now()}`);
     const { storageKey, storageProvider, sizeBytes } = await s3.saveUpload({
+      userId,
       scanId,
       buffer: buf,
       originalName: "probe.png",
@@ -80,7 +82,8 @@ d("S3 scan storage (optional MinIO / S3 integration)", () => {
     });
     assert.equal(storageProvider, "s3");
     assert.ok(storageKey.includes(scanId), `storageKey=${storageKey}`);
-    assert.ok(storageKey.includes("probe.png"), `storageKey=${storageKey}`);
+    assert.ok(storageKey.includes(`scans/users/${userId}`), `storageKey=${storageKey}`);
+    assert.ok(storageKey.includes("original/source.png"), `storageKey=${storageKey}`);
     const pref = String(process.env.OBJECT_STORAGE_PREFIX || "").trim();
     if (pref) {
       const norm = pref.replace(/\/?$/, "/");

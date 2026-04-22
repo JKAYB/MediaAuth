@@ -13,13 +13,17 @@ require("dotenv").config({
   path: path.resolve(__dirname, "../../../../.env")
 });
 
-const { absolutePathForStorageKey, getStorageForProvider, assertS3ObjectStorageEnv } = require("@media-auth/scan-storage");
+const {
+  absolutePathForStorageKey,
+  getStorageForProvider,
+  assertS3ObjectStorageEnv,
+  plannedStructuredS3StorageKey
+} = require("@media-auth/scan-storage");
 const {
   parseCliArgs,
   printHelp,
   buildCandidateQuery,
-  isEligibleLocalUploadScan,
-  buildS3ObjectKeyFromLegacyLocalStorageKey
+  isEligibleLocalUploadScan
 } = require("./migrateLocalUploadsToS3.lib");
 
 function log(tag, msg, meta) {
@@ -45,6 +49,7 @@ async function main() {
     migrated: 0,
     skippedIneligible: 0,
     skippedInvalidStorageKey: 0,
+    skippedMissingUserId: 0,
     missingLocalFile: 0,
     unreadableLocalFile: 0,
     failedS3UploadOrVerify: 0,
@@ -86,12 +91,17 @@ async function main() {
     }
 
     const legacyKey = String(row.storage_key).trim();
+    if (!row.user_id) {
+      summary.skippedMissingUserId += 1;
+      log("SKIP", "missing user_id (required for structured S3 key)", { scanId });
+      continue;
+    }
     let targetKey;
     try {
-      targetKey = buildS3ObjectKeyFromLegacyLocalStorageKey(legacyKey, prefix);
+      targetKey = plannedStructuredS3StorageKey(row, prefix);
     } catch (e) {
       summary.skippedInvalidStorageKey += 1;
-      log("SKIP", "invalid storage_key", { scanId, error: String(e && e.message ? e.message : e) });
+      log("SKIP", "cannot build structured S3 key", { scanId, error: String(e && e.message ? e.message : e) });
       continue;
     }
 

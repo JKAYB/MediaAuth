@@ -1,10 +1,25 @@
 export type ScanStatus = "safe" | "flagged" | "suspicious" | "pending";
 export type MediaKind = "image" | "video" | "audio" | "url";
 
+export type ScanModelInsight = {
+  name?: string | null;
+  status?: string | null;
+  decision?: string | null;
+  score?: number | null;
+  rawScore?: number | null;
+  normalizedScore?: number | null;
+  finalScore?: number | null;
+};
+
+export type ScanHeatmap = {
+  modelName: string;
+  url: string;
+};
+
 export interface Scan {
   id: string;
   title: string;
-  source: string;
+  source: "upload" | "url";  
   kind: MediaKind;
   status: ScanStatus;
   confidence: number; // 0-100
@@ -21,6 +36,15 @@ export interface Scan {
   detections: { label: string; score: number }[];
   metadata: { key: string; value: string }[];
   timeline: { time: string; event: string }[];
+  modelInsights?: ScanModelInsight[];
+  modelCount?: number;
+  heatmaps?: ScanHeatmap[];
+
+  aggregationResultUrl?: string;
+  modelMetadataUrl?: string;
+
+  durationSec?: number;
+  providerRequestId?: string;
 }
 
 const now = Date.now();

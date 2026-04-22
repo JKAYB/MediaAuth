@@ -16,7 +16,8 @@ const {
   absolutePathForStorageKey,
   getStorageForProvider,
   assertS3ObjectStorageEnv,
-  uploadBaseDir
+  uploadBaseDir,
+  plannedStructuredS3StorageKey
 } = require("@media-auth/scan-storage");
 const {
   parseAuditCliArgs,
@@ -111,7 +112,9 @@ async function main() {
           s3DbKeyChecked = true;
           s3DbKeyPresent = Boolean(info.exists);
         } else {
-          const migKey = buildS3ObjectKeyFromLegacyLocalStorageKey(String(row.storage_key).trim(), prefix);
+          const migKey = row.user_id
+            ? plannedStructuredS3StorageKey(row, prefix)
+            : buildS3ObjectKeyFromLegacyLocalStorageKey(String(row.storage_key).trim(), prefix);
           const info = await s3.getObjectInfo(migKey);
           s3MigrationTargetChecked = true;
           s3MigrationTargetPresent = Boolean(info.exists);

@@ -178,7 +178,7 @@ function buildCandidateQuery(filters) {
     parts.push(`created_at < $${n++}`);
     values.push(filters.beforeIso);
   }
-  let sql = `SELECT id, filename, mime_type, file_size_bytes, storage_key, storage_provider, source_type, created_at
+  let sql = `SELECT id, user_id, filename, mime_type, file_size_bytes, storage_key, storage_provider, source_type, created_at
      FROM scans WHERE ${parts.join(" AND ")}
      ORDER BY created_at ASC`;
   if (filters.limit != null) {
@@ -208,6 +208,7 @@ Safety:
   - Does not delete local files.
   - Skips rows already on S3.
   - DB is updated only after local read + S3 upload + Head verification (non dry-run).
+  - Each scan row must have user_id set (required for structured S3 keys scans/users/{userId}/{scanId}/original/...).
 
 Env (S3, except --dry-run without S3): same as production — OBJECT_STORAGE_BUCKET, REGION, keys, optional PREFIX/ENDPOINT.
 Local files: SCAN_STORAGE_LOCAL_DIR or default data/scan-uploads.

@@ -24,19 +24,83 @@ const DEFAULT_BASE_URL = "https://api.prd.realitydefender.xyz";
 const SIGNED_URL_PATH = "/api/files/aws-presigned";
 const MEDIA_RESULT_PREFIX = "/api/media/users";
 
-/** Image MIME allowlist (MVP); HEIC/HEIF common on Samsung Galaxy and iPhone. */
-const IMAGE_MIME = new Set([
+
+const SUPPORTED_MIME = new Set([
   "image/jpeg",
   "image/jpg",
   "image/png",
   "image/gif",
   "image/webp",
   "image/heic",
-  "image/heif"
+  "image/heif",
+  "audio/mpeg",
+  "audio/wav",
+  "audio/x-wav",
+  "audio/webm",
+  "audio/mp4",
+  "audio/aac",
+  "audio/ogg",
+  "audio/flac",
+  "audio/alac"
 ]);
 
+function fallbackNameForMime(mime) {
+  switch (String(mime || "").trim().toLowerCase()) {
+    case "image/jpeg":
+    case "image/jpg":
+      return "upload.jpg";
+    case "image/png":
+      return "upload.png";
+    case "image/gif":
+      return "upload.gif";
+    case "image/webp":
+      return "upload.webp";
+    case "image/heic":
+      return "upload.heic";
+    case "image/heif":
+      return "upload.heif";
+    case "audio/mpeg":
+      return "upload.mp3";
+    case "audio/wav":
+    case "audio/x-wav":
+      return "upload.wav";
+    case "audio/webm":
+      return "upload.webm";
+    case "audio/mp4":
+      return "upload.m4a";
+    case "audio/aac":
+      return "upload.aac";
+    case "audio/ogg":
+      return "upload.ogg";
+    case "audio/flac":
+      return "upload.flac";
+    case "audio/alac":
+      return "upload.alac";
+    default:
+      return "upload.bin";
+  }
+}
+
 /** @see SUPPORTED_FILE_TYPES image row in Reality Defender TS SDK */
-const MAX_IMAGE_BYTES = 52_428_800;
+// const MAX_IMAGE_BYTES = 52_428_800;
+// const MAX_AUDIO_BYTES = 20 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
+const MAX_AUDIO_BYTES = 3 * 1024 * 1024; // 3 MB
+
+
+function getMediaFamily(mime) {
+  const m = String(mime || "").trim().toLowerCase();
+  if (m.startsWith("image/")) return "image";
+  if (m.startsWith("audio/")) return "audio";
+  return "unknown";
+}
+
+function getMaxBytesForMime(mime) {
+  const family = getMediaFamily(mime);
+  if (family === "image") return MAX_IMAGE_BYTES;
+  if (family === "audio") return MAX_AUDIO_BYTES;
+  return null;
+}
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -52,6 +116,47 @@ function joinUrl(base, p) {
   const b = trimBaseUrl(base);
   const pathPart = p.startsWith("/") ? p : `/${p}`;
   return `${b}${pathPart}`;
+}
+
+/**
+ * Log a single outbound HTTP call in the Reality Defender upload flow.
+ * RD API hosts get the full URL; presigned third-party URLs (e.g. S3) redact the query
+ * unless REALITY_DEFENDER_LOG_FULL_SIGNED_URL=1|true (signatures in query — avoid in production).
+ *
+ * @param {string} scanId
+ * @param {'presign' | 'storage_put' | 'poll'} step
+ * @param {{ method: string; url: string; baseUrl: string; bodyParams?: Record<string, unknown> }} opts
+ */
+function logRealityDefenderApiTriggered(scanId, step, { method, url, baseUrl, bodyParams }) {
+  let urlLogged = url;
+  try {
+    const u = new URL(url);
+    const base = new URL(trimBaseUrl(baseUrl));
+    const sameHost = u.hostname === base.hostname;
+    const rdHost =
+      u.hostname === "api.prd.realitydefender.xyz" ||
+      u.hostname.endsWith(".realitydefender.xyz") ||
+      u.hostname.includes("realitydefender");
+    if (!sameHost && !rdHost) {
+      const fullSigned =
+        process.env.REALITY_DEFENDER_LOG_FULL_SIGNED_URL === "1" ||
+        process.env.REALITY_DEFENDER_LOG_FULL_SIGNED_URL === "true";
+      if (!fullSigned && u.search) {
+        urlLogged = `${u.origin}${u.pathname}?<redacted query len=${u.search.length}>`;
+      }
+    }
+  } catch {
+    /* keep url as-is */
+  }
+
+  rdLog({
+    event: "reality_defender_api_triggered",
+    scanId,
+    step,
+    method,
+    url: urlLogged,
+    ...(bodyParams && Object.keys(bodyParams).length ? { bodyParams } : {})
+  });
 }
 
 /**
@@ -129,9 +234,9 @@ function assertSupportedInput(input) {
   const mime = String(input.mimeType || "")
     .trim()
     .toLowerCase();
-  if (!IMAGE_MIME.has(mime)) {
+  if (!SUPPORTED_MIME.has(mime)) {
     throw new UnsupportedInputError(
-      `Unsupported MIME type for Reality Defender MVP: ${input.mimeType}. Allowed: ${[...IMAGE_MIME].join(", ")}`,
+      `Unsupported MIME type for Reality Defender MVP: ${input.mimeType}. Allowed: ${[...SUPPORTED_MIME].join(", ")}`,
       { snippet: input.scanId }
     );
   }
@@ -242,16 +347,69 @@ function mapMediaToProviderFields(media) {
         : `Reality Defender: ${statusNorm || "UNKNOWN"} — inconclusive; see details.`;
 
   const models = Array.isArray(media.models) ? media.models : [];
-  const modelSummaries = models.slice(0, 8).map((m) => {
-    if (!m || typeof m !== "object") return { name: "?", status: "?" };
-    const mo = /** @type {Record<string, unknown>} */ (m);
-    return {
-      name: typeof mo.name === "string" ? mo.name : "?",
-      status: typeof mo.status === "string" ? mo.status : "?",
-      predictionNumber: typeof mo.predictionNumber === "number" ? mo.predictionNumber : null
-    };
-  });
+  // const modelSummaries = models.slice(0, 8).map((m) => {
+  //   if (!m || typeof m !== "object") return { name: "?", status: "?" };
+  //   const mo = /** @type {Record<string, unknown>} */ (m);
+  //   return {
+  //     name: typeof mo.name === "string" ? mo.name : "?",
+  //     status: typeof mo.status === "string" ? mo.status : "?",
+  //     predictionNumber: typeof mo.predictionNumber === "number" ? mo.predictionNumber : null
+  //   };
+  // });
+  const modelInsights = models
+    .filter((m) => {
+      if (!m || typeof m !== "object") return false;
+      return m.status !== "NOT_APPLICABLE" && m.code !== "not_applicable";
+    })
+    .map((m) => {
+      const mo = m || {};
+      const data = mo.data || {};
 
+      return {
+        name: typeof mo.name === "string" ? mo.name : null,
+        status: typeof mo.status === "string" ? mo.status : null,
+        decision: typeof data.decision === "string" ? data.decision : null,
+        score: typeof data.score === "number" ? data.score : null,
+        rawScore: typeof data.raw_score === "number" ? data.raw_score : null,
+        normalizedScore:
+          typeof mo.normalizedPredictionNumber === "number"
+            ? mo.normalizedPredictionNumber
+            : null,
+        finalScore:
+          typeof mo.finalScore === "number" ? mo.finalScore : null
+      };
+    });
+  const ensemble = modelInsights.find((m) =>
+    m.name && m.name.includes("ensemble")
+  );
+  const mediaMeta =
+    media.media_metadata_info &&
+      typeof media.media_metadata_info === "object"
+      ? media.media_metadata_info
+      : {};
+
+  const durationSec =
+    typeof mediaMeta.audio_length === "number"
+      ? mediaMeta.audio_length
+      : null;
+
+  const fileSize =
+    typeof mediaMeta.file_size === "number"
+      ? mediaMeta.file_size
+      : null;
+  const heatmaps =
+    media.heatmaps && typeof media.heatmaps === "object"
+      ? media.heatmaps
+      : {};
+  const aggregationResultUrl =
+    typeof media.aggregationResultUrl === "string"
+      ? media.aggregationResultUrl
+      : null;
+
+  const modelMetadataUrl =
+    typeof media.modelMetadataUrl === "string"
+      ? media.modelMetadataUrl
+      : null;
   return {
     confidence,
     isAiGenerated,
@@ -259,12 +417,29 @@ function mapMediaToProviderFields(media) {
     details: {
       detectionVendor: "reality_defender",
       requestId: typeof media.requestId === "string" ? media.requestId : undefined,
+
       mediaType: typeof media.mediaType === "string" ? media.mediaType : undefined,
       overallStatus: typeof media.overallStatus === "string" ? media.overallStatus : undefined,
       resultsSummaryStatus: statusNorm || rawStatus || null,
       finalScore: typeof finalScore === "number" ? finalScore : null,
-      modelsSample: modelSummaries
+      durationSec,
+      fileSize,
+      modelInsights,
+      modelCount: modelInsights.length,
+      ensemble,
+      heatmaps,
+      aggregationResultUrl,
+      modelMetadataUrl
     }
+    // details: {
+    //   detectionVendor: "reality_defender",
+    //   requestId: typeof media.requestId === "string" ? media.requestId : undefined,
+    //   mediaType: typeof media.mediaType === "string" ? media.mediaType : undefined,
+    //   overallStatus: typeof media.overallStatus === "string" ? media.overallStatus : undefined,
+    //   resultsSummaryStatus: statusNorm || rawStatus || null,
+    //   finalScore: typeof finalScore === "number" ? finalScore : null,
+    //   modelsSample: modelSummaries
+    // }
   };
 }
 
@@ -280,6 +455,7 @@ async function detectRealityDefender(input) {
   rdLog({
     event: "reality_defender_selected",
     scanId: input.scanId,
+    apiBaseUrl: trimBaseUrl(cfg.baseUrl),
     baseUrlHost: (() => {
       try {
         return new URL(trimBaseUrl(cfg.baseUrl)).host;
@@ -306,9 +482,10 @@ async function detectRealityDefender(input) {
   if (stat.size === 0) {
     throw new EmptyFileError("Local media file is empty.", { snippet: path.basename(localPath) });
   }
-  if (stat.size > MAX_IMAGE_BYTES) {
+  const maxBytes = getMaxBytesForMime(input.mimeType);
+  if (maxBytes && stat.size > maxBytes) {
     throw new FileTooLargeError(
-      `File exceeds Reality Defender image limit (${stat.size} > ${MAX_IMAGE_BYTES} bytes)`,
+      `File exceeds Reality Defender limit (${stat.size} > ${maxBytes} bytes)`,
       { snippet: String(stat.size) }
     );
   }
@@ -320,13 +497,21 @@ async function detectRealityDefender(input) {
     });
   }
 
-  const fileName = input.originalFilename || path.basename(localPath) || "upload.jpg";
+  const fileName = input.originalFilename || path.basename(localPath) || fallbackNameForMime(input.mimeType);
+
   const presignUrl = joinUrl(cfg.baseUrl, SIGNED_URL_PATH);
 
   rdLog({
     event: "reality_defender_presign_start",
     scanId: input.scanId,
     fileName
+  });
+
+  logRealityDefenderApiTriggered(input.scanId, "presign", {
+    method: "POST",
+    url: presignUrl,
+    baseUrl: cfg.baseUrl,
+    bodyParams: { fileName }
   });
 
   let presignRes;
@@ -369,6 +554,12 @@ async function detectRealityDefender(input) {
     bytes: fileBuf.length
   });
 
+  logRealityDefenderApiTriggered(input.scanId, "storage_put", {
+    method: "PUT",
+    url: signedUrl,
+    baseUrl: cfg.baseUrl
+  });
+
   let putRes;
   try {
     putRes = await fetchWithDeadline(
@@ -399,10 +590,17 @@ async function detectRealityDefender(input) {
   const deadline = Date.now() + cfg.pollTimeoutMs;
   const detailUrl = joinUrl(cfg.baseUrl, `${MEDIA_RESULT_PREFIX}/${encodeURIComponent(requestId)}`);
 
+  logRealityDefenderApiTriggered(input.scanId, "poll", {
+    method: "GET",
+    url: detailUrl,
+    baseUrl: cfg.baseUrl
+  });
+
   rdLog({
     event: "reality_defender_poll_start",
     scanId: input.scanId,
     requestId,
+    pollUrl: detailUrl,
     pollIntervalMs: cfg.pollIntervalMs,
     pollTimeoutMs: cfg.pollTimeoutMs
   });
@@ -501,10 +699,10 @@ async function detectRealityDefender(input) {
     requestId,
     lastStatus:
       lastMedia &&
-      lastMedia.resultsSummary &&
-      typeof lastMedia.resultsSummary === "object" &&
-      !Array.isArray(lastMedia.resultsSummary) &&
-      typeof /** @type {Record<string, unknown>} */ (lastMedia.resultsSummary).status === "string"
+        lastMedia.resultsSummary &&
+        typeof lastMedia.resultsSummary === "object" &&
+        !Array.isArray(lastMedia.resultsSummary) &&
+        typeof /** @type {Record<string, unknown>} */ (lastMedia.resultsSummary).status === "string"
         ? /** @type {Record<string, unknown>} */ (lastMedia.resultsSummary).status
         : null,
     retryable: true
@@ -524,5 +722,5 @@ module.exports = {
   mapMediaToProviderFields,
   parsePresignResponse,
   MAX_IMAGE_BYTES,
-  IMAGE_MIME
+  SUPPORTED_MIME
 };

@@ -294,6 +294,10 @@ d("API scan integration", () => {
     assert.equal(rows[0].source_type, "upload");
     assert.equal(rows[0].storage_provider, "local");
     assert.ok(rows[0].storage_key && String(rows[0].storage_key).includes(scanId));
+    assert.ok(
+      String(rows[0].storage_key).includes("scans/users/") && String(rows[0].storage_key).includes(String(userId)),
+      "structured local storage key"
+    );
     assert.equal(rows[0].filename, "pixel.png");
     assert.equal(rows[0].mime_type, "image/png");
     assert.ok(Number(rows[0].file_size_bytes) > 0);

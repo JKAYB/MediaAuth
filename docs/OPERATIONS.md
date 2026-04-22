@@ -125,7 +125,7 @@ Worker loads **repo root** `.env` the same way as API.
 | `OBJECT_STORAGE_ACCESS_KEY_ID` / `OBJECT_STORAGE_SECRET_ACCESS_KEY` | `s3` | Required |
 | `OBJECT_STORAGE_ENDPOINT` | `s3` | Optional (MinIO / S3-compatible) |
 | `OBJECT_STORAGE_FORCE_PATH_STYLE` | `s3` | Optional (`1` / `true` for many MinIO setups) |
-| `OBJECT_STORAGE_PREFIX` | `s3` | Optional prefix (e.g. `scans` → keys like `scans/{scanId}/file.png`) |
+| `OBJECT_STORAGE_PREFIX` | `s3` | Optional prefix prepended to object keys (new uploads use `…/scans/users/{userId}/{scanId}/original/source.{ext}`) |
 | `OBJECT_STORAGE_PUBLIC_BASE_URL` | `s3` | Optional (not used by worker fetch path) |
 
 ### 4.7 Migrating legacy local uploads to S3 (ops script)
@@ -146,7 +146,7 @@ dotenv -e .env -- node apps/api/src/scripts/migrate-local-uploads-to-s3.js --ver
 **Behavior:**
 
 - Selects **`source_type = upload`**, non-empty **`storage_key`**, **`storage_provider` IS NULL OR `local`** — never URL scans or existing S3 rows.
-- For each row: resolves local path with **`absolutePathForStorageKey`**, reads the file, **`PutObject`** at the **target S3 key** (legacy key + current **`OBJECT_STORAGE_PREFIX`**), **`HeadObject`** to verify size, then **`UPDATE`** `storage_provider = 's3'`, **`storage_key` = target key** (conditional update so reruns are safe).
+- For each row: resolves local path with **`absolutePathForStorageKey`**, reads the file, **`PutObject`** at the **structured target S3 key** (`{OBJECT_STORAGE_PREFIX/}scans/users/{user_id}/{scan_id}/original/source.{ext}` from **`mime_type`**; requires **`user_id`** on the row), **`HeadObject`** to verify size, then **`UPDATE`** `storage_provider = 's3'`, **`storage_key` = target key** (conditional update so reruns are safe).
 - **Does not delete** local files (phase-1); plan a separate cleanup after backups and verification.
 - **Idempotent:** if the object already exists in S3 with the same size as the local file, **PutObject** is skipped; DB is still updated if the row is still local-backed. If **S3 succeeded** but **`UPDATE` returned 0 rows**, the log marks **`failedDbUpdate`** — the object may exist under **`targetS3Key`** while the row was changed elsewhere; reconcile manually (inspect row, delete stray object only if sure).
 
@@ -154,6 +154,22 @@ dotenv -e .env -- node apps/api/src/scripts/migrate-local-uploads-to-s3.js --ver
 **Verify-only:** local **`stat`** (and optional **`--check-s3`** Head); no DB writes.
 
 **Rollback:** restore **`storage_provider`** / **`storage_key`** from a DB backup or manual SQL if needed; copied S3 objects can remain until you lifecycle-delete them.
+
+### 4.7.1 S3 flat keys → structured layout (ops script)
+
+When **`storage_provider = s3`** but objects still use the legacy shape (`{prefix/}{scanId}/{filename}`), run the structured migration after **`npm run db:migrate`** (adds **`old_storage_key`**, **`storage_migrated_at`**).
+
+**Script:** `apps/api/src/scripts/migrate-s3-scan-keys-to-structured-layout.js`  
+**Command:** `npm run migrate:s3-scan-keys -- --dry-run` (from `apps/api`) or:
+
+```bash
+dotenv -e .env -- node apps/api/src/scripts/migrate-s3-scan-keys-to-structured-layout.js --dry-run --limit 50
+dotenv -e .env -- node apps/api/src/scripts/migrate-s3-scan-keys-to-structured-layout.js --execute --limit 50
+# optional cleanup after verification:
+dotenv -e .env -- node apps/api/src/scripts/migrate-s3-scan-keys-to-structured-layout.js --execute --delete-old-objects --scan-id <uuid>
+```
+
+**Behavior:** **`CopyObject`** old → new key, **`HeadObject`** on destination, then **`UPDATE`** `storage_key`, set **`old_storage_key`**, **`storage_migrated_at`**. Rows already under **`scans/users/.../original/source.*`**, rows with **`storage_migrated_at`** set, or rows missing **`user_id`**, are skipped. Default is **dry-run** when neither **`--execute`** nor **`--dry-run`** is passed.
 
 ### 4.8 Post-migration audit and optional local-file cleanup (ops)
 

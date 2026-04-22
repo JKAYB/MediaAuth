@@ -87,6 +87,11 @@ async function runMigrations() {
     `ALTER TABLE scans ADD COLUMN IF NOT EXISTS retry_count INTEGER NOT NULL DEFAULT 0`
   );
   await pool.query(`ALTER TABLE scans ADD COLUMN IF NOT EXISTS storage_provider TEXT`);
+
+  await pool.query(`ALTER TABLE scans ADD COLUMN IF NOT EXISTS old_storage_key TEXT`);
+  await pool.query(
+    `ALTER TABLE scans ADD COLUMN IF NOT EXISTS storage_migrated_at TIMESTAMPTZ`
+  );
 }
 runMigrations()
   .then(() => {

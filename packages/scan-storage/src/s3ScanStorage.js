@@ -3,9 +3,10 @@ const {
   PutObjectCommand,
   HeadObjectCommand,
   GetObjectCommand,
-  DeleteObjectCommand
+  DeleteObjectCommand,
+  CopyObjectCommand
 } = require("@aws-sdk/client-s3");
-const { buildObjectKey } = require("./keyUtil");
+const { buildStructuredScanRelativeKey, applyObjectKeyPrefix } = require("./keyUtil");
 
 function truthy(v) {
   const s = String(v || "")
@@ -17,9 +18,9 @@ function truthy(v) {
 class S3ScanStorage {
   constructor() {
     this.providerId = "s3";
-    this.bucket = process.env.OBJECT_STORAGE_BUCKET.trim();
+    this.bucket = String(process.env.OBJECT_STORAGE_BUCKET || "").trim();
     this.prefix = (process.env.OBJECT_STORAGE_PREFIX || "").trim();
-    const region = process.env.OBJECT_STORAGE_REGION.trim();
+    const region = String(process.env.OBJECT_STORAGE_REGION || "").trim();
     const endpoint = process.env.OBJECT_STORAGE_ENDPOINT?.trim();
     const forcePathStyle = truthy(process.env.OBJECT_STORAGE_FORCE_PATH_STYLE);
 
@@ -27,8 +28,8 @@ class S3ScanStorage {
     const cfg = {
       region,
       credentials: {
-        accessKeyId: process.env.OBJECT_STORAGE_ACCESS_KEY_ID.trim(),
-        secretAccessKey: process.env.OBJECT_STORAGE_SECRET_ACCESS_KEY.trim()
+        accessKeyId: String(process.env.OBJECT_STORAGE_ACCESS_KEY_ID || "").trim(),
+        secretAccessKey: String(process.env.OBJECT_STORAGE_SECRET_ACCESS_KEY || "").trim()
       }
     };
     if (endpoint) {
@@ -39,16 +40,46 @@ class S3ScanStorage {
   }
 
   /**
-   * @param {{ scanId: string; buffer: Buffer; originalName: string; contentType?: string }} params
+   * @param {{ userId: string; scanId: string; buffer: Buffer; originalName: string; contentType?: string }} params
    */
-  async saveUpload({ scanId, buffer, originalName, contentType }) {
-    const { objectKey } = buildObjectKey({ scanId, originalName, prefix: this.prefix });
+  async saveUpload({ userId, scanId, buffer, originalName: _originalName, contentType }) {
+    const relative = buildStructuredScanRelativeKey({
+      userId,
+      scanId,
+      mimeType: contentType,
+      kind: "original"
+    });
+    const objectKey = applyObjectKeyPrefix(this.prefix, relative);
     await this.putBufferAtStorageKey({
       storageKey: objectKey,
       buffer,
       contentType: contentType || "application/octet-stream"
     });
     return { storageKey: objectKey, storageProvider: "s3", sizeBytes: buffer.length };
+  }
+
+  /**
+   * Server-side copy within the same bucket (ops / migrations).
+   * @param {{ sourceKey: string; destinationKey: string }} params
+   */
+  async copyObject({ sourceKey, destinationKey }) {
+    const src = String(sourceKey || "").trim();
+    const dest = String(destinationKey || "").trim();
+    if (!src || !dest) {
+      throw new Error("copyObject requires sourceKey and destinationKey");
+    }
+    const copySource = `${this.bucket}/${src
+      .split("/")
+      .map((seg) => encodeURIComponent(seg))
+      .join("/")}`;
+    await this.client.send(
+      new CopyObjectCommand({
+        Bucket: this.bucket,
+        CopySource: copySource,
+        Key: dest,
+        MetadataDirective: "COPY"
+      })
+    );
   }
 
   /**

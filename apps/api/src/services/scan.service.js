@@ -93,6 +93,7 @@ async function createScanFromUpload({ userId, file }) {
 
   const storage = getScanObjectStorage();
   const saved = await storage.saveUpload({
+    userId,
     scanId,
     buffer,
     originalName: file.originalname,

@@ -7,6 +7,7 @@
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
     "db:migrate": "node src/db/migrate.js",
+    "migrate:s3-scan-keys": "node src/scripts/migrate-s3-scan-keys-to-structured-layout.js",
     "test": "node --test test/*.test.js",
     "test:integration:api": "RUN_API_INTEGRATION=1 node --test --test-concurrency=1 test/integration/*.integration.test.js",
     "test:integration:api:s3": "RUN_API_INTEGRATION=1 RUN_API_INTEGRATION_WORKER=1 RUN_API_S3_STORAGE_INTEGRATION=1 node --test --test-concurrency=1 test/integration/scanApiS3Storage.minio-integration.test.js"

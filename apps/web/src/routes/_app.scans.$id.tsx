@@ -22,6 +22,7 @@ import { downloadScanOriginal } from "@/lib/scan-media-download";
 import { formatFileSize, strictUploadPreviewKind } from "@/lib/scan-media";
 import { cn } from "@/lib/utils";
 import { debounce } from "lodash";
+import { HeatmapCard } from "@/components/scan/HeatMapCard";
 
 export const Route = createFileRoute("/_app/scans/$id")({
   head: () => ({
@@ -141,6 +142,9 @@ function ScanDetail() {
   const uploadPreviewKind =
     !liveDemo && scan.canFetchMedia ? strictUploadPreviewKind(scan.mimeType) : undefined;
 
+  const modelNames = new Set((scan.modelInsights || []).map((m) => m.name).filter(Boolean));
+  const visibleHeatmaps = (scan.heatmaps || []).filter((h) => modelNames.has(h.modelName));
+
   const verdictColor =
     scan.status === "safe"
       ? "from-success/30 to-success/0 ring-success/30 text-success"
@@ -205,8 +209,7 @@ function ScanDetail() {
               {scan.title}
             </h1>
             <p className="mt-1.5 max-w-full text-xs leading-relaxed text-muted-foreground sm:text-sm">
-              Scanned {timeAgo(scan.createdAt)} · {scan.kind.toUpperCase()} ·{" "}
-              {scan.detections.length} signals
+              Scanned {timeAgo(scan.createdAt)} · {scan.kind.toUpperCase()} · {(scan.modelCount ?? scan.detections.length)} signals
             </p>
           </div>
           <div className="flex justify-center pt-1 md:block md:justify-self-end md:pt-0">
@@ -233,7 +236,7 @@ function ScanDetail() {
               {scan.status === "flagged" ? (
                 <div className="inline-flex items-center gap-1.5 rounded-md bg-destructive/20 px-2.5 py-1.5 text-xs text-destructive ring-1 ring-destructive/30 backdrop-blur">
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                  <span className="min-w-0 break-words">Manipulation detected</span>
+                  <span className="min-w-0 break-words">Likely AI-generated or manipulated</span>
                 </div>
               ) : null}
             </div>
@@ -279,7 +282,7 @@ function ScanDetail() {
           </div>
           {scan.detections.length === 0 ? (
             <p className="max-w-full whitespace-normal break-words text-sm leading-relaxed text-muted-foreground">
-              No signals yet — analysis in progress.
+              No model signals available for this scan.
             </p>
           ) : (
             <ul className="space-y-3 sm:space-y-4">
@@ -330,7 +333,148 @@ function ScanDetail() {
             ))}
           </dl>
         </Accordion>
+        <Accordion title="Model insights" icon={ListChecks}>
+          {scan.modelInsights && scan.modelInsights.length > 0 ? (
+            <div className="space-y-3">
+              {scan.modelInsights.map((model, index) => {
+                const percent =
+                  typeof model.normalizedScore === "number"
+                    ? model.normalizedScore
+                    : typeof model.finalScore === "number"
+                      ? model.finalScore
+                      : typeof model.score === "number"
+                        ? Math.round(model.score <= 1 ? model.score * 100 : model.score)
+                        : null;
 
+                return (
+                  <div
+                    key={`${model.name || "model"}-${index}`}
+                    className="rounded-lg border border-border bg-input/30 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="break-words font-medium">{model.name || "Unknown model"}</div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {model.status || "—"}
+                          {model.decision ? ` · ${model.decision}` : ""}
+                        </div>
+                      </div>
+                      <div className="shrink-0 font-mono text-sm">
+                        {percent != null ? `${percent}%` : "—"}
+                      </div>
+                    </div>
+
+                    {percent != null ? (
+                      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className={cn(
+                            "h-full rounded-full",
+                            percent > 70
+                              ? "bg-gradient-to-r from-destructive to-destructive/80"
+                              : percent > 40
+                                ? "bg-gradient-to-r from-warning to-warning/80"
+                                : "bg-gradient-to-r from-success to-success/80"
+                          )}
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                    ) : null}
+
+                    <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                      <div className="rounded-md border border-border bg-background/40 px-2 py-1.5">
+                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          Score
+                        </div>
+                        <div className="font-mono text-xs">
+                          {typeof model.score === "number" ? model.score : "—"}
+                        </div>
+                      </div>
+                      <div className="rounded-md border border-border bg-background/40 px-2 py-1.5">
+                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          Raw score
+                        </div>
+                        <div className="font-mono text-xs">
+                          {typeof model.rawScore === "number" ? model.rawScore : "—"}
+                        </div>
+                      </div>
+                      <div className="rounded-md border border-border bg-background/40 px-2 py-1.5">
+                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          Decision
+                        </div>
+                        <div className="font-mono text-xs">{model.decision || "—"}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No model insights available.</p>
+          )}
+        </Accordion>
+
+        <Accordion title="Heatmaps" icon={Activity}>
+
+          {visibleHeatmaps.length > 0 ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {visibleHeatmaps.map((heatmap) => (
+              <HeatmapCard
+                key={heatmap.modelName}
+                heatmap={heatmap}
+              />
+            ))}
+          </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No heatmaps available.</p>
+          )}
+        </Accordion>
+        <Accordion title="Analysis artifacts" icon={FileText}>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-border bg-input/30 p-3">
+              <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Aggregation JSON
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Combined analysis output from the detection pipeline.
+              </p>
+              {scan.aggregationResultUrl ? (
+                <a
+                  href={scan.aggregationResultUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-flex items-center gap-2 text-sm text-primary hover:underline"
+                >
+                  <FileText className="h-4 w-4" />
+                  View artifact
+                </a>
+              ) : (
+                <div className="mt-3 text-sm text-muted-foreground">Not available</div>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-border bg-input/30 p-3">
+              <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Model metadata
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Provider metadata and model-level artifact output.
+              </p>
+              {scan.modelMetadataUrl ? (
+                <a
+                  href={scan.modelMetadataUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-flex items-center gap-2 text-sm text-primary hover:underline"
+                >
+                  <FileText className="h-4 w-4" />
+                  View artifact
+                </a>
+              ) : (
+                <div className="mt-3 text-sm text-muted-foreground">Not available</div>
+              )}
+            </div>
+          </div>
+        </Accordion>
         <Accordion title="Timeline" icon={Activity}>
           <ol className="relative min-w-0 space-y-3 border-l border-border/80 pl-5 sm:space-y-4 sm:pl-6">
             {scan.timeline.map((t, i) => (
@@ -344,7 +488,6 @@ function ScanDetail() {
             ))}
           </ol>
         </Accordion>
-
         <Accordion title="Raw output (JSON)" icon={FileText}>
           <pre className="max-h-60 max-w-full overflow-x-auto overflow-y-auto rounded-lg border border-border bg-background/60 p-3 font-mono text-[10px] leading-relaxed sm:max-h-72 sm:p-4 sm:text-xs">
             {JSON.stringify(scan, null, 2)}

@@ -1,7 +1,7 @@
 const fs = require("fs/promises");
 const fsSync = require("fs");
 const path = require("path");
-const { buildObjectKey } = require("./keyUtil");
+const { buildStructuredScanRelativeKey } = require("./keyUtil");
 
 function repoRootFromPackage() {
   return path.resolve(__dirname, "../../..");
@@ -20,14 +20,19 @@ function uploadBaseDir() {
  * @param {string} storageKey
  * @returns {string} absolute path
  */
+const LEGACY_LOCAL_KEY_RE = /^[0-9a-fA-F-]{36}\/[^\\/]+$/;
+const STRUCTURED_LOCAL_KEY_RE =
+  /^scans\/users\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(original|derived|metadata)\/[A-Za-z0-9._-]+$/i;
+
 function absolutePathForStorageKey(storageKey) {
   if (!storageKey || typeof storageKey !== "string") {
     throw new Error("storage_key is missing");
   }
-  if (!/^[0-9a-fA-F-]{36}\/[^\\/]+$/.test(storageKey)) {
+  const k = storageKey.trim();
+  if (!LEGACY_LOCAL_KEY_RE.test(k) && !STRUCTURED_LOCAL_KEY_RE.test(k)) {
     throw new Error("Invalid storage_key");
   }
-  return path.join(uploadBaseDir(), storageKey);
+  return path.join(uploadBaseDir(), ...k.split("/"));
 }
 
 class LocalScanStorage {
@@ -38,13 +43,17 @@ class LocalScanStorage {
   }
 
   /**
-   * @param {{ scanId: string; buffer: Buffer; originalName: string; contentType?: string }} params
+   * @param {{ userId: string; scanId: string; buffer: Buffer; originalName: string; contentType?: string }} params
    */
-  async saveUpload({ scanId, buffer, originalName }) {
-    const { objectKey } = buildObjectKey({ scanId, originalName, prefix: "" });
-    const absDir = path.join(uploadBaseDir(), scanId);
-    const absFile = path.join(uploadBaseDir(), objectKey);
-    await fs.mkdir(absDir, { recursive: true });
+  async saveUpload({ userId, scanId, buffer, originalName: _originalName, contentType }) {
+    const objectKey = buildStructuredScanRelativeKey({
+      userId,
+      scanId,
+      mimeType: contentType,
+      kind: "original"
+    });
+    const absFile = path.join(uploadBaseDir(), ...objectKey.split("/"));
+    await fs.mkdir(path.dirname(absFile), { recursive: true });
     await fs.writeFile(absFile, buffer, { mode: 0o600 });
     return { storageKey: objectKey, storageProvider: "local", sizeBytes: buffer.length };
   }

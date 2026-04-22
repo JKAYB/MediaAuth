@@ -21,16 +21,18 @@ describe("local scan storage", () => {
 
   it("saveUpload then getObjectInfo and stream roundtrip", async () => {
     const s = new LocalScanStorage();
-    const scanId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    const userId = "aaaaaaaa-bbbb-4ccc-dddd-eeeeeeeeeeee";
+    const scanId = "bbbbbbbb-bbbb-4ccc-dddd-ffffffffffff";
     const buf = Buffer.from("hello-object");
     const { storageKey, storageProvider } = await s.saveUpload({
+      userId,
       scanId,
       buffer: buf,
       originalName: "test.txt",
       contentType: "text/plain"
     });
     assert.equal(storageProvider, "local");
-    assert.match(storageKey, new RegExp(`^${scanId}/`));
+    assert.ok(storageKey.includes(`scans/users/${userId}/${scanId}/original/`));
 
     const info = await s.getObjectInfo(storageKey);
     assert.equal(info.exists, true);
@@ -46,9 +48,11 @@ describe("local scan storage", () => {
 
   it("getDownloadStream with byte range reads slice only", async () => {
     const s = new LocalScanStorage();
-    const scanId = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+    const userId = "cccccccc-cccc-4ccc-cccc-cccccccccccc";
+    const scanId = "dddddddd-dddd-4ddd-dddd-dddddddddddd";
     const buf = Buffer.from("0123456789");
     const { storageKey } = await s.saveUpload({
+      userId,
       scanId,
       buffer: buf,
       originalName: "slice.bin",
