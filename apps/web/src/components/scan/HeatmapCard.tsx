@@ -39,8 +39,7 @@ export function HeatmapCard({ heatmap }: { heatmap: Heatmap }) {
               href={heatmap.url}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-            >
+              className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
               <ExternalLink className="h-3 w-3" />
               Open
             </a>
