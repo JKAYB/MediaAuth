@@ -9,12 +9,18 @@ import {
 } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, ArrowRight, Github, Mail, ShieldCheck, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Logo } from "@/components/brand/Logo";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { prefetchMe, useLogin, useSignup } from "@/features/auth/hooks";
-import { getToken } from "@/lib/auth-storage";
+import LiquidEther from "./LiquidEtherWithRef";
+import { useFluidEtherLandingMode } from "@/hooks/use-fluid-ether-enabled";
+import {
+  LANDING_FLUID_FULL_BASE,
+  LANDING_FLUID_LITE_BASE,
+  LANDING_STATIC_FLUID_FALLBACK_CLASS,
+} from "@/lib/landing-fluid-ether-props";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
@@ -22,7 +28,6 @@ export const Route = createFileRoute("/login")({
   }),
   beforeLoad: async () => {
     if (typeof window === "undefined") return;
-    if (!getToken()) return;
     try {
       await prefetchMe();
       throw redirect({ to: "/dashboard" });
@@ -43,16 +48,41 @@ function LoginPage() {
   return <AuthShell mode="login" />;
 }
 
+const loginFluidColors = ["#7FD4F5", "#70E0F8", "#B05CFF"] as const;
+
+function StaticFluidBackdrop() {
+  return <div className={LANDING_STATIC_FLUID_FALLBACK_CLASS} aria-hidden />;
+}
+
 export function AuthShell({ mode }: { mode: "login" | "signup" }) {
   const [showPw, setShowPw] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const fluidMode = useFluidEtherLandingMode();
+  const [showFluid, setShowFluid] = useState(false);
   const navigate = useNavigate();
   const router = useRouter();
   const loginMutation = useLogin();
   const signupMutation = useSignup();
   const isLogin = mode === "login";
+  const liquidEtherProps = useMemo(() => {
+    if (fluidMode === "off") return null;
+    return {
+      ...(fluidMode === "lite" ? LANDING_FLUID_LITE_BASE : LANDING_FLUID_FULL_BASE),
+      colors: [...loginFluidColors],
+    };
+  }, [fluidMode]);
+
+  useEffect(() => {
+    if (fluidMode === "off") {
+      setShowFluid(false);
+      return;
+    }
+    const raf = requestAnimationFrame(() => setShowFluid(true));
+    return () => cancelAnimationFrame(raf);
+  }, [fluidMode]);
+
   const redirectTo = useRouterState({
     select: (s) => {
       const q = s.location.search as { redirect?: string };
@@ -83,6 +113,20 @@ export function AuthShell({ mode }: { mode: "login" | "signup" }) {
 
   return (
     <div className="relative min-h-screen lg:grid lg:grid-cols-2">
+      <div
+        className={
+          fluidMode === "lite"
+            ? "pointer-events-none absolute inset-0 z-0 opacity-[0.46]"
+            : "pointer-events-none absolute inset-0 z-0 opacity-[0.54]"
+        }
+      >
+        {fluidMode === "off" || !showFluid || !liquidEtherProps ? (
+          <StaticFluidBackdrop />
+        ) : (
+          <LiquidEther {...liquidEtherProps} className="pointer-events-none !absolute inset-0" />
+        )}
+      </div>
+
       <div className="login-brand-panel relative hidden overflow-hidden lg:block">
         <div className="grid-bg absolute inset-0 opacity-40" />
         <div className="float absolute -left-20 top-32 h-72 w-72 rounded-full bg-primary/30 blur-3xl" />
@@ -224,7 +268,7 @@ export function AuthShell({ mode }: { mode: "login" | "signup" }) {
                   minLength={isLogin ? undefined : 8}
                   maxLength={isLogin ? undefined : 200}
                   type={showPw ? "text" : "password"}
-                  placeholder="••••••••"
+                  placeholder=""
                   className="auth-input pr-10"
                   autoComplete={isLogin ? "current-password" : "new-password"}
                   value={password}

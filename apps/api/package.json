@@ -17,6 +17,7 @@
     "@media-auth/worker": "file:../worker",
     "bcrypt": "^5.1.1",
     "bullmq": "^5.10.4",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",

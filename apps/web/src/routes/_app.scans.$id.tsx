@@ -237,7 +237,7 @@ function ScanDetail() {
             </p>
           </div>
           <div className="flex justify-center pt-1 md:block md:justify-self-end md:pt-0">
-            <div className="origin-center scale-[0.88] sm:scale-100">
+            <div className="origin-center scale-[0.9] sm:scale-100">
               <ConfidenceRing value={scan.confidence} status={scan.status} />
             </div>
           </div>
@@ -550,9 +550,9 @@ function ConfidenceRing({ value, status }: { value: number; status: string }) {
         />
       </svg>
       {/* Slight upward shift: two-line label reads visually centered in the ring hole; avoids bottom arc + glow overlap */}
-      <div className="relative z-10 flex -translate-y-1 flex-col items-center justify-center gap-0 px-1 text-center sm:-translate-y-0.5">
-        <div className="font-display text-lg font-semibold leading-none tabular-nums sm:text-2xl md:text-3xl">{value}%</div>
-        <div className="mt-0.5 text-[9px] uppercase leading-tight tracking-wider text-muted-foreground sm:text-[10px]">
+      <div className="relative z-10 flex -translate-y-1 flex-col items-center justify-center gap-1 px-1 text-center sm:-translate-y-0.5">
+        <div className="font-display text-xs font-semibold leading-none tabular-nums sm:text-2xl md:text-3xl">{value}%</div>
+        <div className="mt-0.5 text-[8px] uppercase leading-tight tracking-wider text-muted-foreground sm:text-[10px]">
           confidence
         </div>
       </div>

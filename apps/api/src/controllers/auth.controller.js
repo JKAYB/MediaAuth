@@ -5,6 +5,38 @@ const { pool } = require("../db/pool");
 
 const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 200;
+const AUTH_COOKIE_NAME = "auth_token";
+
+function authCookieOptions() {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 24 * 60 * 60 * 1000,
+    path: "/"
+  };
+}
+
+function setAuthCookie(res, token) {
+  res.cookie(AUTH_COOKIE_NAME, token, authCookieOptions());
+}
+
+function clearAuthCookie(res) {
+  const opts = authCookieOptions();
+  res.clearCookie(AUTH_COOKIE_NAME, {
+    httpOnly: opts.httpOnly,
+    secure: opts.secure,
+    sameSite: opts.sameSite,
+    path: opts.path
+  });
+}
+
+function maskApiKey(keyValue) {
+  const raw = String(keyValue || "");
+  if (!raw) return "";
+  const suffix = raw.slice(-4);
+  return `****${suffix}`;
+}
 
 /** Returns an error message or null if the password meets policy. */
 function passwordPolicyError(password) {
@@ -49,7 +81,13 @@ async function signup(req, res, next) {
       [userId, email, passwordHash]
     );
 
-    return res.status(201).json({ id: userId, email });
+    const token = jwt.sign(
+      { sub: userId, email },
+      process.env.JWT_SECRET || "change-me",
+      { expiresIn: "1d" }
+    );
+    setAuthCookie(res, token);
+    return res.status(201).json({ ok: true });
   } catch (error) {
     return next(error);
   }
@@ -76,7 +114,17 @@ async function login(req, res, next) {
       { expiresIn: "1d" }
     );
 
-    return res.json({ token });
+    setAuthCookie(res, token);
+    return res.json({ ok: true });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function logout(_req, res, next) {
+  try {
+    clearAuthCookie(res);
+    return res.status(204).send();
   } catch (error) {
     return next(error);
   }
@@ -88,7 +136,14 @@ async function listApiKeys(req, res, next) {
       "SELECT id, name, key_value, created_at FROM api_keys WHERE user_id = $1 ORDER BY created_at DESC",
       [req.user.id]
     );
-    return res.json({ data: rows });
+    return res.json({
+      data: rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        key_masked: maskApiKey(row.key_value),
+        created_at: row.created_at
+      }))
+    });
   } catch (error) {
     return next(error);
   }
@@ -234,6 +289,7 @@ async function updateMe(req, res, next) {
 module.exports = {
   signup,
   login,
+  logout,
   listApiKeys,
   createApiKey,
   deleteApiKey,

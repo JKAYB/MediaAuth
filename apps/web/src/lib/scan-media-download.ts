@@ -1,7 +1,7 @@
 import { apiFetch } from "@/lib/api";
 
 /**
- * Download the original uploaded bytes for a scan (owner-only; uses Bearer token).
+ * Download the original uploaded bytes for a scan (owner-only; authenticated cookie session).
  * Uses GET /scan/:id/media?download=1 → Content-Disposition: attachment.
  */
 export async function downloadScanOriginal(scanId: string, filename: string): Promise<void> {

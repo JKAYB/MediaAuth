@@ -1,10 +1,9 @@
 import { meQueryKey } from "@/features/auth/queryKeys";
 import { isLiveDemo } from "@/lib/demo-mode";
-import { clearToken, getToken, setToken } from "./auth-storage";
 import { getRouterQueryClient } from "./queryClient";
 
 /**
- * HTTP helpers: `apiBase()` + `apiFetch` / `apiJson` attach `Authorization` when a token exists,
+ * HTTP helpers: `apiBase()` + `apiFetch` / `apiJson` send credentials (HttpOnly auth cookie),
  * default JSON headers for bodies, and parse responses safely. Use `apiFetch` for multipart uploads.
  * Live demo mode blocks `apiFetch` (no authenticated API traffic); login/signup use raw `fetch` below.
  */
@@ -31,15 +30,12 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
       "Live demo is active — API requests are disabled. Exit demo in the top banner to use your workspace.",
     );
   }
-  const token = getToken();
   const headers = new Headers(init.headers);
-  if (token) headers.set("Authorization", `Bearer ${token}`);
   if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  const res = await fetch(`${apiBase()}${path}`, { ...init, headers });
+  const res = await fetch(`${apiBase()}${path}`, { ...init, headers, credentials: "include" });
   if (res.status === 401) {
-    clearToken();
     try {
       getRouterQueryClient().removeQueries({ queryKey: meQueryKey });
     } catch {
@@ -60,17 +56,16 @@ export async function apiJson<T>(path: string, init: RequestInit = {}): Promise<
   return data as T;
 }
 
-export async function loginRequest(email: string, password: string): Promise<{ token: string }> {
+export async function loginRequest(email: string, password: string): Promise<{ ok: boolean }> {
   const res = await fetch(`${apiBase()}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
+    credentials: "include",
   });
-  const data = (await parseJson(res)) as { token?: string; error?: string };
+  const data = (await parseJson(res)) as { ok?: boolean; error?: string };
   if (!res.ok) throw new Error(data.error || "Login failed");
-  if (!data.token) throw new Error("No token in response");
-  setToken(data.token);
-  return { token: data.token };
+  return { ok: true };
 }
 
 export async function signupRequest(email: string, password: string): Promise<void> {
@@ -78,9 +73,21 @@ export async function signupRequest(email: string, password: string): Promise<vo
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
+    credentials: "include",
   });
   const data = (await parseJson(res)) as { error?: string };
   if (!res.ok) throw new Error(data.error || "Signup failed");
+}
+
+export async function logoutRequest(): Promise<void> {
+  const res = await fetch(`${apiBase()}/auth/logout`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!res.ok && res.status !== 401) {
+    const data = (await parseJson(res)) as { error?: string };
+    throw new Error(data.error || "Logout failed");
+  }
 }
 
 export type MeResponse = {

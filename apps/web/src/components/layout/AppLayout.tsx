@@ -16,7 +16,6 @@ import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/Logo";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
-import { getToken, getTokenSnapshot, subscribeToken } from "@/lib/auth-storage";
 import { useLogout, useMe } from "@/features/auth/hooks";
 import { disableLiveDemo, getLiveDemoSnapshot, subscribeLiveDemo } from "@/lib/demo-mode";
 import { user as demoUser } from "@/lib/mock-data";
@@ -41,7 +40,7 @@ function SidebarContent({
   logoTo: "/dashboard" | "/";
   logoAriaLabel: string;
   onMobileNavClick?: () => void;
-  onLogout: () => void;
+  onLogout: () => void | Promise<void>;
   profile: { name: string; email: string; initials: string } | null;
 }) {
   return (
@@ -127,7 +126,9 @@ function SidebarContent({
           </Link>
           <button
             type="button"
-            onClick={onLogout}
+            onClick={() => {
+              void onLogout();
+            }}
             className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-background hover:text-foreground"
             aria-label="Sign out"
           >
@@ -145,10 +146,10 @@ export function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const isLoading = useRouterState({ select: (s) => s.isLoading });
   const liveDemo = useSyncExternalStore(subscribeLiveDemo, getLiveDemoSnapshot, () => false);
-  const hasToken = useSyncExternalStore(subscribeToken, getTokenSnapshot, () => null);
-  const logoTo = hasToken ? "/dashboard" : "/";
-  const logoAriaLabel = hasToken ? "Go to dashboard" : "MediaAuth home";
   const meQuery = useMe();
+  const isAuthenticated = !liveDemo && meQuery.isSuccess;
+  const logoTo = isAuthenticated ? "/dashboard" : "/";
+  const logoAriaLabel = isAuthenticated ? "Go to dashboard" : "MediaAuth home";
   const logout = useLogout();
 
   const profile = useMemo(() => {
@@ -173,16 +174,16 @@ export function AppLayout() {
   const exitLiveDemo = () => {
     disableLiveDemo();
     setMobileOpen(false);
-    if (!getToken()) {
+    if (!isAuthenticated) {
       navigate({ to: "/" });
       return;
     }
     navigate({ to: "/dashboard" });
   };
 
-  const onLogout = () => {
+  const onLogout = async () => {
     disableLiveDemo();
-    logout();
+    await logout();
   };
 
   return (
@@ -236,7 +237,7 @@ export function AppLayout() {
                 onMobileNavClick={() => setMobileOpen(false)}
                 onLogout={() => {
                   setMobileOpen(false);
-                  onLogout();
+                  void onLogout();
                 }}
               />
             </motion.aside>

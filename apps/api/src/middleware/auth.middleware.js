@@ -1,12 +1,13 @@
 const jwt = require("jsonwebtoken");
 
 function authMiddleware(req, _res, next) {
-  const auth = req.headers.authorization || "";
-  if (!auth.startsWith("Bearer ")) {
+  const token = req.cookies && typeof req.cookies.auth_token === "string"
+    ? req.cookies.auth_token
+    : "";
+  if (!token) {
     return next();
   }
 
-  const token = auth.slice("Bearer ".length);
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET || "change-me");
     req.user = { id: payload.sub, email: payload.email };

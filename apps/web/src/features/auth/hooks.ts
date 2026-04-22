@@ -7,12 +7,12 @@ import {
 } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useSyncExternalStore } from "react";
-import { clearToken, getTokenSnapshot, subscribeToken } from "@/lib/auth-storage";
 import { disableLiveDemo, getLiveDemoSnapshot, subscribeLiveDemo } from "@/lib/demo-mode";
 import {
   changePassword as changePasswordRequest,
   getMe,
   loginRequest,
+  logoutRequest,
   signupRequest,
   type MeResponse,
 } from "@/lib/api";
@@ -36,22 +36,21 @@ export async function prefetchMe() {
 }
 
 /**
- * Current user from `GET /me`. Disabled in live demo or without a token.
+ * Current user from `GET /me`. Disabled in live demo.
  * Auth state for the session: `data` present ⇒ authenticated for API-backed UI.
  */
 export function useMe(): UseQueryResult<MeResponse, Error> {
-  const hasToken = useSyncExternalStore(subscribeToken, getTokenSnapshot, () => null);
   const liveDemo = useSyncExternalStore(subscribeLiveDemo, getLiveDemoSnapshot, () => false);
   return useQuery({
     ...meQueryOptions(),
-    enabled: Boolean(hasToken) && !liveDemo,
+    enabled: !liveDemo,
   });
 }
 
 type LoginVars = { email: string; password: string };
 
 export function useLogin(
-  options?: Omit<UseMutationOptions<{ token: string }, Error, LoginVars>, "mutationFn">,
+  options?: Omit<UseMutationOptions<{ ok: boolean }, Error, LoginVars>, "mutationFn">,
 ) {
   const qc = useQueryClient();
   return useMutation({
@@ -91,9 +90,12 @@ export function useChangePassword(
 export function useLogout() {
   const qc = useQueryClient();
   const navigate = useNavigate();
-  return () => {
-    clearToken();
-    qc.removeQueries({ queryKey: meQueryKey });
-    navigate({ to: "/login" });
+  return async () => {
+    try {
+      await logoutRequest();
+    } finally {
+      qc.removeQueries({ queryKey: meQueryKey });
+      navigate({ to: "/login" });
+    }
   };
 }

@@ -1,12 +1,13 @@
 const express = require("express");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 const authRoutes = require("./routes/auth.routes");
 const scanRoutes = require("./routes/scan.routes");
 const scanAdminRoutes = require("./routes/scanAdmin.routes");
 const { getMe, updateMe, changePassword } = require("./controllers/auth.controller");
 const { authMiddleware, requireUser } = require("./middleware/auth.middleware");
-const { apiKeyMiddleware } = require("./middleware/apikey.middleware");
 const { internalOpsMiddleware } = require("./middleware/internalOps.middleware");
+const { privateCacheNoStore } = require("./middleware/privateCache.middleware");
 const { errorHandler, notFoundHandler } = require("./middleware/error.middleware");
 const { getScanExecutionMode } = require("./config/scanExecution");
 
@@ -25,9 +26,12 @@ function createApp() {
           return;
         }
         callback(new Error("CORS blocked for this origin"));
-      }
+      },
+      credentials: true
     })
   );
+  // Cookie auth is enabled; add CSRF protection middleware here before mutating routes if/when needed.
+  app.use(cookieParser());
   app.use(express.json());
 
   app.get("/health", (_req, res) => {
@@ -60,13 +64,13 @@ function createApp() {
     res.status(ok ? 200 : 503).json({ ok, ...checks });
   });
 
-  app.get("/me", authMiddleware, apiKeyMiddleware, requireUser, getMe);
-  app.patch("/me", authMiddleware, apiKeyMiddleware, requireUser, updateMe);
-  app.patch("/me/password", authMiddleware, apiKeyMiddleware, requireUser, changePassword);
+  app.get("/me", authMiddleware, requireUser, privateCacheNoStore, getMe);
+  app.patch("/me", authMiddleware, requireUser, privateCacheNoStore, updateMe);
+  app.patch("/me/password", authMiddleware, requireUser, privateCacheNoStore, changePassword);
 
-  app.use("/auth", authRoutes);
-  app.use("/scan", scanRoutes);
-  app.use("/internal/scans", internalOpsMiddleware, scanAdminRoutes);
+  app.use("/auth", privateCacheNoStore, authRoutes);
+  app.use("/scan", privateCacheNoStore, scanRoutes);
+  app.use("/internal/scans", privateCacheNoStore, internalOpsMiddleware, scanAdminRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

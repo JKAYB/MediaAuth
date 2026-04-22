@@ -127,7 +127,6 @@ async function streamScanArtifact(req, res, next) {
 
     res.status(200);
     res.setHeader("Content-Type", result.mimeType);
-    res.setHeader("Cache-Control", "private, max-age=120");
     res.setHeader("Content-Length", String(result.contentLength));
     res.setHeader(
       "Content-Disposition",
@@ -167,7 +166,6 @@ async function streamScanHeatmap(req, res, next) {
 
     res.status(200);
     res.setHeader("Content-Type", result.mimeType);
-    res.setHeader("Cache-Control", "private, max-age=120");
     res.setHeader("Content-Length", String(result.contentLength));
 
     result.stream.on("error", (err) => {
@@ -212,7 +210,6 @@ async function streamScanMedia(req, res, next) {
     }
 
     res.setHeader("Content-Type", result.mimeType);
-    res.setHeader("Cache-Control", "private, max-age=120");
     res.setHeader(
       "Content-Disposition",
       buildContentDisposition(attachment ? "attachment" : "inline", result.filename)

@@ -114,14 +114,29 @@ async function main() {
       }
 
       const headNewBefore = await s3.getObjectInfo(newKey);
+
       if (headNewBefore.exists) {
-        summary.skippedTargetExists += 1;
-        log("SKIP", "destination key already exists", { scanId, newKey });
-        continue;
+        if (headNewBefore.size !== headOld.size) {
+          summary.skippedTargetExists += 1;
+          log("SKIP", "destination key already exists with different size", {
+            scanId,
+            newKey,
+            sourceSize: headOld.size,
+            destinationSize: headNewBefore.size
+          });
+          continue;
+        }
+
+        log("INFO", "destination key already exists with matching size; resuming DB update", {
+          scanId,
+          newKey,
+          size: headNewBefore.size
+        });
+      } else {
+        await s3.copyObject({ sourceKey: oldKey, destinationKey: newKey });
+        copied = true;
       }
 
-      await s3.copyObject({ sourceKey: oldKey, destinationKey: newKey });
-      copied = true;
       const headNew = await s3.getObjectInfo(newKey);
       if (!headNew.exists || headNew.size !== headOld.size) {
         summary.errors += 1;
@@ -153,7 +168,7 @@ async function main() {
 
       if (upd.rowCount !== 1) {
         if (copied) {
-          await s3.deleteObject(newKey).catch(() => {});
+          await s3.deleteObject(newKey).catch(() => { });
         }
         summary.errors += 1;
         log("ERROR", "DB update did not match exactly one row (manual fix may be needed)", {

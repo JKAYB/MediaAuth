@@ -1,16 +1,6 @@
-import { apiBase } from "@/lib/api";
-
-/** True when `VITE_INTERNAL_OPS_TOKEN` is set (build-time / local env). */
+/** Internal ops are intentionally not callable from browser clients. */
 export function isInternalOpsConfigured(): boolean {
-  return Boolean(String(import.meta.env.VITE_INTERNAL_OPS_TOKEN || "").trim());
-}
-
-function internalToken(): string {
-  const t = String(import.meta.env.VITE_INTERNAL_OPS_TOKEN || "").trim();
-  if (!t) {
-    throw new Error("Internal ops is not configured (missing VITE_INTERNAL_OPS_TOKEN).");
-  }
-  return t;
+  return false;
 }
 
 async function parseJson(res: Response): Promise<unknown> {
@@ -36,15 +26,11 @@ export class InternalOpsHttpError extends Error {
 }
 
 async function internalFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  const headers = new Headers();
-  headers.set("X-Internal-Token", internalToken());
-  const incoming = new Headers(init.headers);
-  incoming.forEach((v, k) => headers.set(k, v));
-  const hasBody = init.body != null && init.body !== "";
-  if (hasBody && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-  return fetch(`${apiBase()}${path}`, { ...init, headers });
+  void path;
+  void init;
+  throw new Error(
+    "Internal ops endpoints are backend-only and are not available from browser clients."
+  );
 }
 
 async function internalJson<T>(path: string, init: RequestInit = {}): Promise<T> {

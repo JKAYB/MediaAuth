@@ -1,9 +1,8 @@
 import { FileText } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { apiBase } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import type { MediaKind } from "@/lib/mock-data";
 import type { StrictUploadPreviewKind } from "@/lib/scan-media";
-import { getToken } from "@/lib/auth-storage";
 import { cn } from "@/lib/utils";
 
 function resolvedMime(mimeType: string | null | undefined, kind: MediaKind): string {
@@ -81,11 +80,7 @@ export function ScanMediaPreview({
 
     (async () => {
       try {
-        const token = getToken();
-        const headers = new Headers();
-        if (token) headers.set("Authorization", `Bearer ${token}`);
-        const res = await fetch(`${apiBase()}/scan/${encodeURIComponent(scanId)}/media`, {
-          headers,
+        const res = await apiFetch(`/scan/${encodeURIComponent(scanId)}/media`, {
           signal: ac.signal,
         });
         if (!res.ok) throw new Error(`media ${res.status}`);
