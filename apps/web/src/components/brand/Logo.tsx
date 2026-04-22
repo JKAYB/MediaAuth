@@ -1,8 +1,11 @@
 import { cn } from "@/lib/utils";
 
-const lockupSrc = "/brand/lockup.png";
+/** Lockup on dark UI (html.dark). */
+const lockupLightSrc = "/brand/Light-Logo.png";
+/** Lockup on light UI. */
+const lockupDarkSrc = "/brand/Dark-Logo.png";
 
-/** Intrinsic pixels of `public/brand/lockup.png` — keeps layout ratio before paint. */
+/** Intrinsic pixels — keeps layout ratio before paint (both assets match this frame). */
 const LOCKUP_WIDTH = 899;
 const LOCKUP_HEIGHT = 362;
 
@@ -31,12 +34,20 @@ export function Logo({
       )}
     >
       <img
-        src={lockupSrc}
+        src={lockupLightSrc}
         alt=""
         width={LOCKUP_WIDTH}
         height={LOCKUP_HEIGHT}
         decoding="async"
-        className="block h-full w-full object-contain object-left"
+        className="hidden h-full w-full object-contain object-left dark:block"
+      />
+      <img
+        src={lockupDarkSrc}
+        alt=""
+        width={LOCKUP_WIDTH}
+        height={LOCKUP_HEIGHT}
+        decoding="async"
+        className="block h-full w-full object-contain object-left dark:hidden"
       />
     </div>
   );
