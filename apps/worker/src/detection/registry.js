@@ -1,9 +1,7 @@
 const { mockProvider } = require("./providers/mockProvider");
 const { realProvider } = require("./providers/realProvider");
 const { hiveProvider } = require("./providers/hiveProvider");
-const {
-  enabledScanProviders
-} = require("../../../api/src/config/scanProviders");
+const { enabledScanProviders } = require("../config/scanProviders");
 
 /**
  * Register detection providers here. Each must implement:
@@ -17,8 +15,8 @@ const providersById = {
   [hiveProvider.id]: hiveProvider,
   reality_defender: {
     id: "reality_defender",
-    detect: realProvider.detect
-  }
+    detect: realProvider.detect,
+  },
 };
 
 function normalizeEnvId(raw) {
@@ -48,7 +46,7 @@ function resolveActiveProviderIds(requestedIds) {
     return [wanted];
   }
   console.warn(
-    `[detection] No enabled providers resolved; using fallback "${mockProvider.id}"`
+    `[detection] No enabled providers resolved; using fallback "${mockProvider.id}"`,
   );
   return [mockProvider.id];
 }
@@ -60,5 +58,5 @@ function getProvider(providerId) {
 module.exports = {
   providersById,
   resolveActiveProviderIds,
-  getProvider
+  getProvider,
 };
