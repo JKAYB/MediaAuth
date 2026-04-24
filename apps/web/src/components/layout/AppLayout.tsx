@@ -5,6 +5,7 @@ import {
   ScanSearch,
   History,
   Settings,
+  Users,
   Search,
   Menu,
   X,
@@ -20,6 +21,7 @@ import { useLogout, useMe } from "@/features/auth/hooks";
 import { disableLiveDemo, getLiveDemoSnapshot, subscribeLiveDemo } from "@/lib/demo-mode";
 import { user as demoUser } from "@/lib/mock-data";
 import { displayNameFromMe, initialsFromDisplayName } from "@/lib/user-display";
+import { canManageTeam, shouldShowUpgradeCard } from "@/features/billing/planAccess";
 
 const nav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -35,6 +37,8 @@ function SidebarContent({
   onMobileNavClick,
   onLogout,
   profile,
+  showTeamNav,
+  showUpgrade,
 }: {
   pathname: string;
   logoTo: "/dashboard" | "/";
@@ -42,7 +46,10 @@ function SidebarContent({
   onMobileNavClick?: () => void;
   onLogout: () => void | Promise<void>;
   profile: { name: string; email: string; initials: string } | null;
+  showTeamNav: boolean;
+  showUpgrade: boolean;
 }) {
+  const navItems = showTeamNav ? [...nav, { to: "/team", label: "Team", icon: Users }] : nav;
   return (
     <div className="flex h-full flex-col select-none lg:select-auto">
       <div className="border-b border-sidebar-border/50 px-3 pb-3 pt-4">
@@ -60,7 +67,7 @@ function SidebarContent({
         <div className="px-2 pb-2 pt-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
           Workspace
         </div>
-        {nav.map((item) => {
+        {navItems.map((item) => {
           // Exact match or nested route; `/scans` must not match prefix `/scan`.
           const active = pathname === item.to || pathname.startsWith(`${item.to}/`);
           const Icon = item.icon;
@@ -93,18 +100,25 @@ function SidebarContent({
         })}
       </nav>
 
-      <div className="m-3 rounded-xl border border-border/60 bg-gradient-to-br from-primary/10 via-accent/10 to-transparent p-4">
-        <div className="mb-2 flex items-center gap-2 text-xs font-semibold">
-          <Sparkles className="h-3.5 w-3.5 text-primary" />
-          Upgrade to Enterprise
+      {showUpgrade ? (
+        <div className="m-3 rounded-xl border border-border/60 bg-gradient-to-br from-primary/10 via-accent/10 to-transparent p-4">
+          <div className="mb-2 flex items-center gap-2 text-xs font-semibold">
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            Upgrade to Enterprise
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Unlimited scans, team workspaces, and audit-grade reports.
+          </p>
+          <Link
+            to="/settings"
+            search={{ tab: "billing" }}
+            onClick={onMobileNavClick}
+            className="mt-3 inline-flex w-full items-center justify-center rounded-md bg-foreground px-3 py-1.5 text-xs font-semibold text-background transition hover:opacity-90"
+          >
+            See plans
+          </Link>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Unlimited scans, team workspaces, and audit-grade reports.
-        </p>
-        <button className="mt-3 w-full rounded-md bg-foreground px-3 py-1.5 text-xs font-semibold text-background transition hover:opacity-90">
-          See plans
-        </button>
-      </div>
+      ) : null}
 
       <div className="border-t border-border/60 p-3">
         <div className="flex items-center gap-1">
@@ -170,6 +184,9 @@ export function AppLayout() {
     }
     return null;
   }, [liveDemo, meQuery.isSuccess, meQuery.data]);
+  const me = liveDemo ? null : meQuery.data ?? null;
+  const showTeamNav = !liveDemo && canManageTeam(me);
+  const showUpgrade = !liveDemo && shouldShowUpgradeCard(me);
 
   const exitLiveDemo = () => {
     disableLiveDemo();
@@ -207,6 +224,8 @@ export function AppLayout() {
           logoTo={logoTo}
           logoAriaLabel={logoAriaLabel}
           profile={profile}
+          showTeamNav={showTeamNav}
+          showUpgrade={showUpgrade}
           onLogout={onLogout}
         />
       </aside>
@@ -234,6 +253,8 @@ export function AppLayout() {
                 logoTo={logoTo}
                 logoAriaLabel={logoAriaLabel}
                 profile={profile}
+                showTeamNav={showTeamNav}
+                showUpgrade={showUpgrade}
                 onMobileNavClick={() => setMobileOpen(false)}
                 onLogout={() => {
                   setMobileOpen(false);

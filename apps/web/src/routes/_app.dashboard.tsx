@@ -46,7 +46,14 @@ function rangeDayLabel(r: ScanAnalyticsRange): string {
   if (r === "14d") return "14";
   return "30";
 }
+function formatPlanName(plan?: string) {
+  if (!plan) return "";
 
+  return plan
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
 function Dashboard() {
   const liveDemo = useSyncExternalStore(subscribeLiveDemo, getLiveDemoSnapshot, () => false);
   const [range, setRange] = useState<ScanAnalyticsRange>("14d");
@@ -90,10 +97,10 @@ function Dashboard() {
     activityQuery.data?.summary.total ??
     (liveDemo || !analyticsPending ? scans.length : null);
 
-  const orgEyebrow = liveDemo
-    ? `${demoUser.org} · ${demoUser.plan}`
+    const orgEyebrow = liveDemo
+    ? `${demoUser.org} · ${formatPlanName(demoUser.plan)}`
     : meQuery.isSuccess && meQuery.data
-      ? `${meQuery.data.organization?.trim() || "Workspace"} · ${meQuery.data.plan}`
+      ? `${meQuery.data.organization?.trim() || "Workspace"} · ${formatPlanName(meQuery.data.plan)}`
       : loading || meQuery.isPending
         ? "Loading workspace…"
         : "Workspace";

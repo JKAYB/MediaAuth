@@ -2,6 +2,7 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type QueryClient,
   type UseMutationOptions,
   type UseQueryResult,
 } from "@tanstack/react-query";
@@ -25,8 +26,10 @@ export { meQueryKey } from "./queryKeys";
 export function meQueryOptions() {
   return {
     queryKey: meQueryKey,
-    queryFn: () => getMe(),
-    staleTime: 5 * 60 * 1000,
+    queryFn: getMe,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
     retry: 1,
   };
 }
@@ -61,6 +64,14 @@ export function useMe(): UseQueryResult<MeResponse, Error> {
   return useQuery({
     ...meQueryOptions(),
     enabled: !liveDemo,
+  });
+}
+
+export async function fetchFreshMe(queryClient: QueryClient) {
+  return queryClient.fetchQuery({
+    queryKey: meQueryKey,
+    queryFn: getMe,
+    staleTime: 0,
   });
 }
 

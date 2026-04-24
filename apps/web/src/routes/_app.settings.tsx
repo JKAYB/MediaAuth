@@ -3,11 +3,11 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { useMemo, useState, useSyncExternalStore } from "react";
 
-const settingsTabIds = ["profile", "security", "notifications"] as const;
+const settingsTabIds = ["profile", "security", "notifications", "billing"] as const;
 type SettingsTabId = (typeof settingsTabIds)[number];
 
 function parseSettingsTab(tab: unknown): SettingsTabId | undefined {
-  if (tab === "profile" || tab === "security" || tab === "notifications") return tab;
+  if (tab === "profile" || tab === "security" || tab === "notifications" || tab === "billing") return tab;
   return undefined;
 }
 import { useForm, type UseFormRegister } from "react-hook-form";
@@ -21,6 +21,7 @@ import { user as demoUser } from "@/lib/mock-data";
 import { SectionHeader } from "@/components/ui-ext/SectionHeader";
 import { ThemeSegmentedControl } from "@/components/layout/ThemeToggle";
 import { cn } from "@/lib/utils";
+import { getPlanLabel, isExpiredPlan, isFreePlan, isPaidPlan, shouldShowUpgradeCard } from "@/features/billing/planAccess";
 
 export const Route = createFileRoute("/_app/settings")({
   validateSearch: (raw: Record<string, unknown>): { tab?: SettingsTabId } => {
@@ -63,6 +64,7 @@ function SettingsPage() {
     { id: "profile", label: "Profile", icon: Camera },
     { id: "security", label: "Security", icon: Key },
     { id: "notifications", label: "Notifications", icon: Bell },
+    { id: "billing", label: "Billing", icon: Key },
   ] as const;
 
   return (
@@ -75,13 +77,13 @@ function SettingsPage() {
             ? "Sample account data for the live demo."
             : "Manage your profile, security, and notification preferences."
         }
-        // action={
-        //   tab === "profile" ? (
-        //     <Link to="/profile" className="text-sm font-medium text-primary hover:underline">
-        //       Profile page →
-        //     </Link>
-        //   ) : undefined
-        // }
+      // action={
+      //   tab === "profile" ? (
+      //     <Link to="/profile" className="text-sm font-medium text-primary hover:underline">
+      //       Profile page →
+      //     </Link>
+      //   ) : undefined
+      // }
       />
 
       <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,200px)_minmax(0,1fr)]">
@@ -197,11 +199,215 @@ function SettingsPage() {
               </div>
             </Card>
           )}
+          {tab === "billing" && <BillingCard liveDemo={liveDemo} />}
         </motion.div>
       </div>
     </div>
   );
 }
+
+function BillingCard({ liveDemo }: { liveDemo: boolean }) {
+  const meQuery = useMe();
+  const me = liveDemo ? null : meQuery.data;
+
+  if (liveDemo) {
+    return (
+      <Card title="Billing">
+        <p className="text-sm text-muted-foreground">Billing is not available in live demo mode.</p>
+      </Card>
+    );
+  }
+
+  if (!me) {
+    return (
+      <Card title="Billing">
+        <div className="space-y-3">
+          <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+          <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
+          <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
+        </div>
+      </Card>
+    );
+  }
+
+  const showUpgrade = shouldShowUpgradeCard(me);
+  const scanPct =
+    me.scanLimit != null && me.scanLimit > 0
+      ? Math.min(100, Math.round((me.scansUsed / me.scanLimit) * 100))
+      : null;
+
+  const statusTone = isExpiredPlan(me)
+    ? "bg-destructive/10 text-destructive border-destructive/20"
+    : isPaidPlan(me)
+      ? "bg-primary/10 text-primary border-primary/20"
+      : "bg-muted text-muted-foreground border-border";
+
+  return (
+    <Card title="Billing">
+      <div className="space-y-5">
+        {/* Plan + status header */}
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              Current plan
+            </div>
+            <div className="mt-1 text-lg font-semibold text-foreground">{getPlanLabel(me.selectedPlan)}</div>
+          </div>
+          <span
+            className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize ${statusTone}`}
+          >
+            {me.subscriptionStatus}
+          </span>
+        </div>
+
+        <div className="h-px bg-border" />
+
+        {/* Usage */}
+        <div className="space-y-2">
+          <div className="flex items-baseline justify-between text-sm">
+            <span className="text-muted-foreground">Scans used</span>
+            <span className="font-medium tabular-nums text-foreground">
+              {me.scansUsed}
+              <span className="text-muted-foreground">
+                {me.scanLimit != null ? ` / ${me.scanLimit}` : " / unlimited"}
+              </span>
+            </span>
+          </div>
+          {scanPct !== null && (
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-primary to-accent transition-all"
+                style={{ width: `${scanPct}%` }}
+              />
+            </div>
+          )}
+        </div>
+
+        {me.planExpiresAt ? (
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Expires</span>
+            <span className="font-medium text-foreground">
+              {new Date(me.planExpiresAt).toLocaleString()}
+            </span>
+          </div>
+        ) : null}
+
+        {/* Contextual notice */}
+        {isFreePlan(me) ? (
+          <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+            You are on <span className="font-medium text-foreground">Free</span>. Upgrade to unlock
+            downloads and higher limits.
+          </div>
+        ) : null}
+
+        {isPaidPlan(me) && !isExpiredPlan(me) ? (
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-foreground/80">
+            Your paid plan is active.
+          </div>
+        ) : null}
+
+        {isExpiredPlan(me) ? (
+          <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
+            Your plan is expired. Renew or upgrade to resume scans.
+          </div>
+        ) : null}
+
+        {/* CTA */}
+        <div className="pt-1">
+          {showUpgrade ? (
+            <Link
+              to="/plans"
+              search={{ mode: "change" }}
+              className="inline-flex h-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-opacity hover:opacity-90"
+            >
+              Upgrade or change plan
+            </Link>
+          ) : (
+            <Link
+              to="/plans"
+              search={{ mode: "change" }}
+              className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              Change plan
+            </Link>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+
+// function BillingCard({ liveDemo }: { liveDemo: boolean }) {
+//   const meQuery = useMe();
+//   const me = liveDemo ? null : meQuery.data;
+//   if (liveDemo) {
+//     return (
+//       <Card title="Billing">
+//         <p className="text-sm text-muted-foreground">Billing is not available in live demo mode.</p>
+//       </Card>
+//     );
+//   }
+//   if (!me) {
+//     return (
+//       <Card title="Billing">
+//         <p className="text-sm text-muted-foreground">Loading billing details…</p>
+//       </Card>
+//     );
+//   }
+//   const showUpgrade = shouldShowUpgradeCard(me);
+//   return (
+//     <Card title="Billing">
+//       <div className="space-y-3">
+//         <div className="text-sm">
+//           <span className="text-muted-foreground">Current plan: </span>
+//           <span className="font-medium">{me.selectedPlan}</span>
+//         </div>
+//         <div className="text-sm">
+//           <span className="text-muted-foreground">Subscription status: </span>
+//           <span className="font-medium">{me.subscriptionStatus}</span>
+//         </div>
+//         <div className="text-sm">
+//           <span className="text-muted-foreground">Scans used: </span>
+//           <span className="font-medium">
+//             {me.scansUsed}
+//             {me.scanLimit != null ? ` / ${me.scanLimit}` : " / unlimited"}
+//           </span>
+//         </div>
+//         {me.planExpiresAt ? (
+//           <div className="text-sm">
+//             <span className="text-muted-foreground">Expires at: </span>
+//             <span className="font-medium">{new Date(me.planExpiresAt).toLocaleString()}</span>
+//           </div>
+//         ) : null}
+//         {isFreePlan(me) ? (
+//           <p className="text-xs text-muted-foreground">You are on Free. Upgrade to unlock downloads and higher limits.</p>
+//         ) : null}
+//         {isPaidPlan(me) && !isExpiredPlan(me) ? (
+//           <p className="text-xs text-muted-foreground">Your paid plan is active.</p>
+//         ) : null}
+//         {isExpiredPlan(me) ? (
+//           <p className="text-xs text-warning">Your plan is expired. Renew or upgrade to resume scans.</p>
+//         ) : null}
+//         {showUpgrade ? (
+//           <Link
+//             to="/plans"
+//             className="inline-flex h-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent px-4 text-sm font-semibold text-primary-foreground"
+//           >
+//             Upgrade or change plan
+//           </Link>
+//         ) : (
+//           <Link
+//             to="/plans"
+//             className="inline-flex h-9 items-center justify-center rounded-lg border border-border px-4 text-sm font-medium"
+//           >
+//             Change plan
+//           </Link>
+//         )}
+//       </div>
+//     </Card>
+//   );
+// }
 
 const PASSWORD_MIN_LEN = 8;
 

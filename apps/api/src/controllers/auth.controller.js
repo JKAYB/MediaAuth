@@ -2,6 +2,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { v4: uuidv4 } = require("uuid");
 const { pool } = require("../db/pool");
+const { getEffectivePlan } = require("../services/access-control.service");
 
 const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 200;
@@ -37,6 +38,17 @@ function maskApiKey(keyValue) {
   if (!raw) return "";
   const suffix = raw.slice(-4);
   return `****${suffix}`;
+}
+
+function subscriptionStatusFromEffectivePlan(effectivePlan) {
+  if (!effectivePlan || !effectivePlan.planSelected) return "none";
+  if (effectivePlan.accessState === "paid_active" || effectivePlan.accessState === "team_active") {
+    return "active";
+  }
+  if (effectivePlan.accessState === "paid_expired" || effectivePlan.accessState === "team_expired") {
+    return "expired";
+  }
+  return "none";
 }
 
 /** Returns an error message or null if the password meets policy. */
@@ -83,8 +95,8 @@ async function signup(req, res, next) {
     const userId = uuidv4();
 
     await pool.query(
-      "INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)",
-      [userId, email, passwordHash]
+      "INSERT INTO users (id, email, password_hash, plan, plan_selected) VALUES ($1, $2, $3, 'free', FALSE)",
+      [userId, email, passwordHash],
     );
 
     const token = jwt.sign(
@@ -186,7 +198,7 @@ async function deleteApiKey(req, res, next) {
 
 async function fetchUserProfile(userId) {
   const { rows } = await pool.query(
-    `SELECT id, email, display_name, organization, plan
+    `SELECT id, email, display_name, organization, plan, plan_selected, must_change_password
      FROM users WHERE id = $1 LIMIT 1`,
     [userId]
   );
@@ -200,12 +212,44 @@ async function fetchUserProfile(userId) {
     row.organization && String(row.organization).trim()
       ? String(row.organization).trim()
       : null;
+  const effectivePlan = await getEffectivePlan(userId);
+  const subscriptionStatus = subscriptionStatusFromEffectivePlan(effectivePlan);
+  const planExpiresAt =
+    effectivePlan.planCode === "team"
+      ? effectivePlan.teamSubscription?.expires_at || null
+      : effectivePlan.userSubscription?.expires_at || null;
+  const teamRole =
+    effectivePlan.teamRole === "team_owner"
+      ? "owner"
+      : effectivePlan.teamRole === "team_member"
+        ? "member"
+        : null;
   return {
     id: row.id,
     email: row.email,
     name,
     organization,
     plan: row.plan || "free",
+    selectedPlan: row.plan || "free",
+    plan_selected: Boolean(row.plan_selected),
+    planSelected: Boolean(row.plan_selected),
+    must_change_password: Boolean(row.must_change_password),
+    subscriptionStatus,
+    scanLimit: effectivePlan.scanLimit,
+    scansUsed: effectivePlan.scansUsed,
+    planExpiresAt,
+    hasEverHadPaidPlan: effectivePlan.hasPaidHistory,
+    teamId: effectivePlan.teamId || null,
+    teamRole,
+    isTeamOwner: teamRole === "owner",
+    access: {
+      plan_code: effectivePlan.planCode,
+      access_state: effectivePlan.accessState,
+      scans_used: effectivePlan.scansUsed,
+      scan_limit: effectivePlan.scanLimit,
+      has_paid_history: effectivePlan.hasPaidHistory,
+      can_manage_team: effectivePlan.teamRole === "team_owner",
+    },
   };
 }
 
@@ -250,7 +294,10 @@ async function changePassword(req, res, next) {
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
-    await pool.query("UPDATE users SET password_hash = $1 WHERE id = $2", [passwordHash, req.user.id]);
+    await pool.query(
+      "UPDATE users SET password_hash = $1, must_change_password = FALSE WHERE id = $2",
+      [passwordHash, req.user.id],
+    );
 
     return res.json({ ok: true });
   } catch (error) {

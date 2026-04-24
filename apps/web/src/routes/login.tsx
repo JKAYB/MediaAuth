@@ -31,9 +31,15 @@ export const Route = createFileRoute("/login")({
   beforeLoad: async () => {
     if (typeof window === "undefined") return;
     try {
-      await prefetchMe();
-      console.info("[auth] redirect target", "/dashboard");
-      throw redirect({ to: "/dashboard" });
+      const me = await prefetchMe();
+      const target =
+        me.must_change_password
+          ? "/change-password"
+          : (me.planSelected ?? me.plan_selected)
+            ? "/dashboard"
+            : "/plans";
+      console.info("[auth] redirect target", target);
+      throw redirect({ to: target as "/dashboard" | "/plans" | "/change-password" });
     } catch (e) {
       if (isRedirect(e)) throw e;
     }
@@ -109,7 +115,11 @@ export function AuthShell({ mode }: { mode: "login" | "signup" }) {
         toast.success("Account created");
       }
       await router.invalidate();
-      const target = redirectTo && redirectTo.startsWith("/") ? redirectTo : "/dashboard";
+      const target = isLogin
+        ? redirectTo && redirectTo.startsWith("/")
+          ? redirectTo
+          : "/dashboard"
+        : "/plans";
       navigate({ to: target });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");

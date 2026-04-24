@@ -8,7 +8,16 @@ export const Route = createFileRoute("/_app")({
     if (typeof window === "undefined") return;
     if (isLiveDemo()) return;
     try {
-      await prefetchMe();
+      const me = await prefetchMe();
+      const planSelected = Boolean(me.planSelected ?? me.plan_selected);
+      if (me.must_change_password && location.pathname !== "/change-password") {
+        console.info("[auth] redirect target", "/change-password");
+        throw redirect({ to: "/change-password" });
+      }
+      if (!planSelected && location.pathname !== "/plans") {
+        console.info("[auth] redirect target", "/plans");
+        throw redirect({ to: "/plans" });
+      }
       disableLiveDemo();
     } catch (e) {
       if (isRedirect(e)) throw e;

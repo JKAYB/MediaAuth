@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getScanProviders, submitScanFile, submitScanUrl } from "@/lib/api";
+import { fetchFreshMe } from "@/features/auth/hooks";
+import { meQueryKey } from "@/features/auth/queryKeys";
 import { scanKeys } from "@/features/scan/queryKeys";
 import { getLiveDemoSnapshot, isLiveDemo, subscribeLiveDemo } from "@/lib/demo-mode";
 
@@ -38,6 +40,7 @@ function ScanPage() {
   const [files, setFiles] = useState<File[]>([]);
   const [url, setUrl] = useState("");
   const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
+  const [upgradePrompt, setUpgradePrompt] = useState<string | null>(null);
   const navigate = useNavigate();
   const providersQuery = useQuery({
     queryKey: ["scan-providers"],
@@ -85,6 +88,7 @@ function ScanPage() {
     }
     setPhase("uploading");
     setProgress(25);
+    setUpgradePrompt(null);
     try {
       let id: string;
       if (tab === "url") {
@@ -112,13 +116,23 @@ function ScanPage() {
         const res = await submitScanFile(file, selectedProviders);
         id = res.id;
       }
-      await qc.invalidateQueries({ queryKey: scanKeys.all });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: scanKeys.all }),
+        qc.invalidateQueries({ queryKey: scanKeys.history() }),
+        qc.invalidateQueries({ queryKey: scanKeys.detail(id) }),
+        qc.invalidateQueries({ queryKey: meQueryKey }),
+      ]);
+      await fetchFreshMe(qc);
       setProgress(100);
       setPhase("done");
       toast.success(tab === "url" ? "URL scan queued" : "Scan queued");
       setTimeout(() => navigate({ to: "/scans/$id", params: { id } }), 500);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Scan failed");
+      const msg = e instanceof Error ? e.message : "Scan failed";
+      if (msg.toLowerCase().includes("plan") || msg.toLowerCase().includes("scan")) {
+        setUpgradePrompt(msg);
+      }
+      toast.error(msg);
       setPhase("idle");
       setProgress(0);
     }
@@ -136,6 +150,11 @@ function ScanPage() {
           <span className="font-semibold">Live demo.</span> File uploads and API scans are disabled.
           Use <span className="font-semibold">Exit demo</span> in the top banner to run real scans
           against your workspace.
+        </div>
+      ) : null}
+      {upgradePrompt ? (
+        <div className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-foreground">
+          {upgradePrompt} <span className="font-semibold">Please upgrade your plan.</span>
         </div>
       ) : null}
       <div>

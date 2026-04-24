@@ -17,6 +17,7 @@ const {
   getDetectionMixAnalytics,
 } = require("../services/scanAnalytics.service");
 const { canRetry } = require("../services/retryPolicy.service");
+const { canStartScan, canDownloadReport } = require("../services/access-control.service");
 const { providerById } = require("../config/scanProviders");
 
 const MAX_URL_LEN = 2048;
@@ -112,6 +113,19 @@ function normalizeProviderStatuses(scan) {
 
 async function submitScanUpload(req, res, next) {
   try {
+    const policy = await canStartScan(req.user.id);
+    if (!policy.ok) {
+      return res.status(403).json({
+        error: "Your current plan cannot start new scans",
+        reason: policy.reason,
+        access: {
+          plan_code: policy.effectivePlan.planCode,
+          access_state: policy.effectivePlan.accessState,
+          scans_used: policy.effectivePlan.scansUsed,
+          scan_limit: policy.effectivePlan.scanLimit,
+        },
+      });
+    }
     if (!req.file) {
       return res.status(400).json({ error: "file is required" });
     }
@@ -133,6 +147,19 @@ async function submitScanUpload(req, res, next) {
 
 async function submitScanUrl(req, res, next) {
   try {
+    const policy = await canStartScan(req.user.id);
+    if (!policy.ok) {
+      return res.status(403).json({
+        error: "Your current plan cannot start new scans",
+        reason: policy.reason,
+        access: {
+          plan_code: policy.effectivePlan.planCode,
+          access_state: policy.effectivePlan.accessState,
+          scans_used: policy.effectivePlan.scansUsed,
+          scan_limit: policy.effectivePlan.scanLimit,
+        },
+      });
+    }
     const parsed = parseScanUrl(req.body);
     if (!parsed.ok) {
       return res.status(400).json({ error: parsed.error });
@@ -276,6 +303,10 @@ async function retryScan(req, res, next) {
 
 async function streamScanArtifact(req, res, next) {
   try {
+    const dl = await canDownloadReport(req.user.id);
+    if (!dl.ok) {
+      return res.status(403).json({ error: "Report download requires a paid plan history" });
+    }
     const type = String(req.params.type || "")
       .trim()
       .toLowerCase();
@@ -362,6 +393,12 @@ async function streamScanMedia(req, res, next) {
   try {
     const rangeHeader = req.get("Range");
     const attachment = wantsAttachmentDownload(req.query && req.query.download);
+    if (attachment) {
+      const dl = await canDownloadReport(req.user.id);
+      if (!dl.ok) {
+        return res.status(403).json({ error: "Report download requires a paid plan history" });
+      }
+    }
     const result = await getScanMediaForUser({
       scanId: req.params.id,
       userId: req.user.id,

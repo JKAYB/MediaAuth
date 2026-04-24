@@ -10,11 +10,14 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as PlansRouteImport } from './routes/plans'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HowItWorksRouteImport } from './routes/how-it-works'
+import { Route as ChangePasswordRouteImport } from './routes/change-password'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as InternalScansRouteImport } from './routes/internal/scans'
+import { Route as AppTeamRouteImport } from './routes/_app.team'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppScanRouteImport } from './routes/_app.scan'
 import { Route as AppProfileRouteImport } from './routes/_app.profile'
@@ -28,6 +31,11 @@ const SignupRoute = SignupRouteImport.update({
   path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PlansRoute = PlansRouteImport.update({
+  id: '/plans',
+  path: '/plans',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -36,6 +44,11 @@ const LoginRoute = LoginRouteImport.update({
 const HowItWorksRoute = HowItWorksRouteImport.update({
   id: '/how-it-works',
   path: '/how-it-works',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChangePasswordRoute = ChangePasswordRouteImport.update({
+  id: '/change-password',
+  path: '/change-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRoute = AppRouteImport.update({
@@ -51,6 +64,11 @@ const InternalScansRoute = InternalScansRouteImport.update({
   id: '/internal/scans',
   path: '/internal/scans',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppTeamRoute = AppTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
@@ -90,28 +108,34 @@ const AppScansIdRoute = AppScansIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/change-password': typeof ChangePasswordRoute
   '/how-it-works': typeof HowItWorksRoute
   '/login': typeof LoginRoute
+  '/plans': typeof PlansRoute
   '/signup': typeof SignupRoute
   '/dashboard': typeof AppDashboardRoute
   '/notifications': typeof AppNotificationsRoute
   '/profile': typeof AppProfileRoute
   '/scan': typeof AppScanRoute
   '/settings': typeof AppSettingsRoute
+  '/team': typeof AppTeamRoute
   '/internal/scans': typeof InternalScansRoute
   '/scans/$id': typeof AppScansIdRoute
   '/scans/': typeof AppScansIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/change-password': typeof ChangePasswordRoute
   '/how-it-works': typeof HowItWorksRoute
   '/login': typeof LoginRoute
+  '/plans': typeof PlansRoute
   '/signup': typeof SignupRoute
   '/dashboard': typeof AppDashboardRoute
   '/notifications': typeof AppNotificationsRoute
   '/profile': typeof AppProfileRoute
   '/scan': typeof AppScanRoute
   '/settings': typeof AppSettingsRoute
+  '/team': typeof AppTeamRoute
   '/internal/scans': typeof InternalScansRoute
   '/scans/$id': typeof AppScansIdRoute
   '/scans': typeof AppScansIndexRoute
@@ -120,14 +144,17 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
+  '/change-password': typeof ChangePasswordRoute
   '/how-it-works': typeof HowItWorksRoute
   '/login': typeof LoginRoute
+  '/plans': typeof PlansRoute
   '/signup': typeof SignupRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/notifications': typeof AppNotificationsRoute
   '/_app/profile': typeof AppProfileRoute
   '/_app/scan': typeof AppScanRoute
   '/_app/settings': typeof AppSettingsRoute
+  '/_app/team': typeof AppTeamRoute
   '/internal/scans': typeof InternalScansRoute
   '/_app/scans/$id': typeof AppScansIdRoute
   '/_app/scans/': typeof AppScansIndexRoute
@@ -136,28 +163,34 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/change-password'
     | '/how-it-works'
     | '/login'
+    | '/plans'
     | '/signup'
     | '/dashboard'
     | '/notifications'
     | '/profile'
     | '/scan'
     | '/settings'
+    | '/team'
     | '/internal/scans'
     | '/scans/$id'
     | '/scans/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/change-password'
     | '/how-it-works'
     | '/login'
+    | '/plans'
     | '/signup'
     | '/dashboard'
     | '/notifications'
     | '/profile'
     | '/scan'
     | '/settings'
+    | '/team'
     | '/internal/scans'
     | '/scans/$id'
     | '/scans'
@@ -165,14 +198,17 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_app'
+    | '/change-password'
     | '/how-it-works'
     | '/login'
+    | '/plans'
     | '/signup'
     | '/_app/dashboard'
     | '/_app/notifications'
     | '/_app/profile'
     | '/_app/scan'
     | '/_app/settings'
+    | '/_app/team'
     | '/internal/scans'
     | '/_app/scans/$id'
     | '/_app/scans/'
@@ -181,8 +217,10 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  ChangePasswordRoute: typeof ChangePasswordRoute
   HowItWorksRoute: typeof HowItWorksRoute
   LoginRoute: typeof LoginRoute
+  PlansRoute: typeof PlansRoute
   SignupRoute: typeof SignupRoute
   InternalScansRoute: typeof InternalScansRoute
 }
@@ -194,6 +232,13 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/plans': {
+      id: '/plans'
+      path: '/plans'
+      fullPath: '/plans'
+      preLoaderRoute: typeof PlansRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -208,6 +253,13 @@ declare module '@tanstack/react-router' {
       path: '/how-it-works'
       fullPath: '/how-it-works'
       preLoaderRoute: typeof HowItWorksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/change-password': {
+      id: '/change-password'
+      path: '/change-password'
+      fullPath: '/change-password'
+      preLoaderRoute: typeof ChangePasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app': {
@@ -230,6 +282,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/internal/scans'
       preLoaderRoute: typeof InternalScansRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/team': {
+      id: '/_app/team'
+      path: '/team'
+      fullPath: '/team'
+      preLoaderRoute: typeof AppTeamRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/settings': {
       id: '/_app/settings'
@@ -289,6 +348,7 @@ interface AppRouteChildren {
   AppProfileRoute: typeof AppProfileRoute
   AppScanRoute: typeof AppScanRoute
   AppSettingsRoute: typeof AppSettingsRoute
+  AppTeamRoute: typeof AppTeamRoute
   AppScansIdRoute: typeof AppScansIdRoute
   AppScansIndexRoute: typeof AppScansIndexRoute
 }
@@ -299,6 +359,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppProfileRoute: AppProfileRoute,
   AppScanRoute: AppScanRoute,
   AppSettingsRoute: AppSettingsRoute,
+  AppTeamRoute: AppTeamRoute,
   AppScansIdRoute: AppScansIdRoute,
   AppScansIndexRoute: AppScansIndexRoute,
 }
@@ -308,8 +369,10 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  ChangePasswordRoute: ChangePasswordRoute,
   HowItWorksRoute: HowItWorksRoute,
   LoginRoute: LoginRoute,
+  PlansRoute: PlansRoute,
   SignupRoute: SignupRoute,
   InternalScansRoute: InternalScansRoute,
 }

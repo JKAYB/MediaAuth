@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const authRoutes = require("./routes/auth.routes");
+const accessRoutes = require("./routes/access.routes");
 const scanRoutes = require("./routes/scan.routes");
 const scanAdminRoutes = require("./routes/scanAdmin.routes");
 const { getMe, updateMe, changePassword } = require("./controllers/auth.controller");
@@ -70,6 +71,7 @@ function createApp() {
   app.patch("/me/password", authMiddleware, requireUser, privateCacheNoStore, changePassword);
 
   app.use("/auth", privateCacheNoStore, authRoutes);
+  app.use("/access", privateCacheNoStore, accessRoutes);
   app.use("/scan", privateCacheNoStore, scanRoutes);
   app.use("/internal/scans", privateCacheNoStore, internalOpsMiddleware, scanAdminRoutes);
 

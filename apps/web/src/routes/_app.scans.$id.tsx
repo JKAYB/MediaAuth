@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { ScanMediaPreview } from "@/components/scan/ScanMediaPreview";
 import { StatusBadge } from "@/components/ui-ext/StatusBadge";
 import { useScanByIdQuery } from "@/features/scan/hooks";
+import { useMe } from "@/features/auth/hooks";
 import { getLiveDemoSnapshot, subscribeLiveDemo } from "@/lib/demo-mode";
 import { scans as demoScans, timeAgo, type Scan } from "@/lib/mock-data";
 import { downloadScanOriginal } from "@/lib/scan-media-download";
@@ -55,6 +56,7 @@ function ScanDetail() {
   const { id } = Route.useParams();
   const liveDemo = useSyncExternalStore(subscribeLiveDemo, getLiveDemoSnapshot, () => false);
   const rowQuery = useScanByIdQuery(id, !liveDemo);
+  const meQuery = useMe();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [downloadBusy, setDownloadBusy] = useState(false);
@@ -157,6 +159,7 @@ function ScanDetail() {
     !liveDemo && scan.canFetchMedia ? strictUploadPreviewKind(scan.mimeType) : undefined;
 
   const providerVM = adaptScanProviders(scan);
+  const canDownloadReports = liveDemo || (meQuery.data?.access?.has_paid_history ?? false);
   const providerTabs = providerVM.tabs;
   const resolvedActiveProvider =
     providerTabs.length === 0
@@ -223,9 +226,14 @@ function ScanDetail() {
             type="button"
             aria-label="Export report"
             disabled={exportBusy}
+            title={canDownloadReports ? "Export report" : "Upgrade required to download reports"}
             onClick={() => {
               void (async () => {
                 if (!scan || exportBusy) {
+                  return;
+                }
+                if (!canDownloadReports) {
+                  toast.error("Report download requires a paid plan");
                   return;
                 }
                 setExportBusy(true);
@@ -432,10 +440,17 @@ function ScanDetail() {
             {scan.canFetchMedia && !liveDemo ? (
               <button
                 type="button"
-                disabled={downloadBusy}
+                disabled={downloadBusy || !canDownloadReports}
                 aria-label="Download original"
+                title={canDownloadReports ? "Download original" : "Upgrade required to download reports"}
                 className="mobile-tap-fix inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-card/70 text-foreground transition hover:bg-card disabled:opacity-60"
-                onClick={() => debouncedDownload(scan.id, scan.title)}
+                onClick={() => {
+                  if (!canDownloadReports) {
+                    toast.error("Report download requires a paid plan");
+                    return;
+                  }
+                  debouncedDownload(scan.id, scan.title);
+                }}
               >
                 {downloadBusy ? (
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

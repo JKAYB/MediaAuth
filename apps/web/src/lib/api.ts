@@ -106,6 +106,26 @@ export type MeResponse = {
   name: string | null;
   organization: string | null;
   plan: string;
+  selectedPlan: string;
+  plan_selected: boolean;
+  planSelected: boolean;
+  must_change_password: boolean;
+  subscriptionStatus: "active" | "expired" | "none";
+  scanLimit: number | null;
+  scansUsed: number;
+  planExpiresAt: string | null;
+  hasEverHadPaidPlan: boolean;
+  teamId: string | null;
+  teamRole: "owner" | "member" | null;
+  isTeamOwner: boolean;
+  access: {
+    plan_code: string;
+    access_state: string;
+    scans_used: number;
+    scan_limit: number | null;
+    has_paid_history: boolean;
+    can_manage_team: boolean;
+  };
 };
 
 export async function getMe(): Promise<MeResponse> {
@@ -141,6 +161,68 @@ export async function changePassword(body: {
     method: "PATCH",
     body: JSON.stringify(body),
   });
+}
+
+export type AccessStateResponse = {
+  plan_code: string;
+  access_state: string;
+  scans_used: number;
+  scan_limit: number | null;
+  has_paid_history: boolean;
+  plan_selected: boolean;
+  must_change_password: boolean;
+  team_role: "team_owner" | "team_member" | null;
+  team_id: string | null;
+};
+
+export async function getAccessState(): Promise<AccessStateResponse> {
+  return apiJson<AccessStateResponse>("/access/me");
+}
+
+export async function selectPlan(planCode: string): Promise<{ ok: boolean; planCode: string; teamId?: string }> {
+  return apiJson<{ ok: boolean; planCode: string; teamId?: string }>("/access/select", {
+    method: "POST",
+    body: JSON.stringify({ planCode }),
+  });
+}
+
+export type TeamMemberRow = {
+  id: string;
+  email: string;
+  role: string;
+  status: string;
+  must_change_password: boolean;
+};
+
+export type MyTeamResponse = {
+  team: { id: string; owner_user_id: string; name: string | null; created_at: string } | null;
+  members: TeamMemberRow[];
+  role?: "team_owner" | "team_member" | null;
+};
+
+export async function getMyTeam(): Promise<MyTeamResponse> {
+  return apiJson<MyTeamResponse>("/access/team");
+}
+
+export async function addTeamMember(email: string): Promise<{
+  ok: boolean;
+  user_id: string;
+  email: string;
+  temporary_password: string;
+  must_change_password: boolean;
+}> {
+  return apiJson("/access/team/members", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function removeTeamMember(userId: string): Promise<void> {
+  const res = await apiFetch(`/access/team/members/${encodeURIComponent(userId)}`, { method: "DELETE" });
+  if (!res.ok) {
+    const body = (await parseJson(res)) as { error?: string };
+    throw new Error(body?.error || "Failed to remove team member");
+  }
 }
 
 export type ApiScanRow = {
