@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/_app/team")({
-  head: () => ({ meta: [{ title: "Team — Observyx" }] }),
+  head: () => ({ meta: [{ title: "Team — MAuthenticity" }] }),
   component: TeamPage,
 });
 

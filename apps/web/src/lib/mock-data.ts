@@ -18,7 +18,7 @@ export type ScanHeatmap = {
   modelName: string;
   /** Legacy vendor presigned URL (may expire). */
   url?: string;
-  /** Served from Observyx storage via authenticated GET `/scan/:id/heatmaps/:asset`. */
+  /** Served from MAuthenticity storage via authenticated GET `/scan/:id/heatmaps/:asset`. */
   heatmapAsset?: string;
   mimeType?: string;
 };

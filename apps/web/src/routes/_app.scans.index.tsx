@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useScanHistoryQuery } from "@/features/scan/hooks";
+import { aggregateScanResult } from "@/features/scans/adapters/aggregateScanResult";
 import { getLiveDemoSnapshot, subscribeLiveDemo } from "@/lib/demo-mode";
 import type { ScanHistoryResultFilter } from "@/lib/api";
 import type { NormalizedMediaType, Scan, ScanStatus } from "@/lib/mock-data";
@@ -77,7 +78,7 @@ export const Route = createFileRoute("/_app/scans/")({
     if (page != null) out.page = page;
     return out;
   },
-  head: () => ({ meta: [{ title: "Scan history — Observyx" }] }),
+  head: () => ({ meta: [{ title: "Scan history — MAuthenticity" }] }),
   component: ScansList,
 });
 
@@ -154,6 +155,16 @@ function buildScansSearch(args: {
   return s;
 }
 
+function aggregatedVerdictToStatus(
+  verdict: ReturnType<typeof aggregateScanResult>["verdict"],
+  scan: Scan,
+): ScanStatus {
+  if (verdict === "authentic") return "safe";
+  if (verdict === "suspicious") return "suspicious";
+  if (verdict === "manipulated") return "flagged";
+  return scan.rawStatus === "failed" ? "failed" : "pending";
+}
+
 /** Radix SelectTrigger: match history search inputs + design tokens. */
 const historySelectTriggerClass =
   "h-10 min-w-0 w-full rounded-lg border border-border bg-input/60 px-3 py-2 text-sm text-foreground shadow-sm transition-colors hover:border-border/80 hover:bg-input/80 focus:border-transparent focus:outline-none focus:ring-0 focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 data-[placeholder]:text-muted-foreground [&>span]:text-foreground";
@@ -216,6 +227,19 @@ function ScansList() {
     return historyQuery.data ?? [];
   }, [liveDemo, fileType, resultFilter, debouncedQ, historyQuery.data]);
 
+  const scansForDisplay = useMemo(
+    () =>
+      scans.map((scan) => {
+        const aggregated = aggregateScanResult(scan);
+        return {
+          ...scan,
+          status: aggregatedVerdictToStatus(aggregated.verdict, scan),
+          confidence: aggregated.confidence,
+        };
+      }),
+    [scans],
+  );
+
   const pageNum = search.page ?? 1;
   const hasActiveFilters = Boolean(
     draftQ.trim() || search.mediaType || search.result || pageNum > 1,
@@ -236,7 +260,7 @@ function ScansList() {
             ? listError
             : liveDemo
               ? "Sample scan list for the live demo — not your account data."
-              : "Search and filter every authenticity report from your Observyx API."
+              : "Search and filter every authenticity report from your MAuthenticity API."
         }
         action={
           <Link
@@ -399,7 +423,7 @@ function ScansList() {
           </div>
         ) : (
           <div className="divide-y divide-border/60">
-            {scans.map((s, i) => (
+            {scansForDisplay.map((s, i) => (
               <ScanRow key={s.id} scan={s} index={i} />
             ))}
           </div>

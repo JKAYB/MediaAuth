@@ -46,8 +46,8 @@ export const Route = createFileRoute("/login")({
   },
   head: () => ({
     meta: [
-      { title: "Sign in — Observyx" },
-      { name: "description", content: "Sign in to your Observyx workspace." },
+      { title: "Sign in — MAuthenticity" },
+      { name: "description", content: "Sign in to your MAuthenticity workspace." },
     ],
   }),
   component: LoginPage,
@@ -152,7 +152,7 @@ export function AuthShell({ mode }: { mode: "login" | "signup" }) {
         <div className="relative z-10 flex h-full flex-col p-10">
           <Link
             to="/"
-            aria-label="Observyx home"
+            aria-label="MAuthenticity home"
             className="inline-flex w-fit touch-manipulation rounded-lg outline-none ring-offset-background transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring [-webkit-tap-highlight-color:transparent] cursor-pointer"
           >
             <Logo />
@@ -180,7 +180,7 @@ export function AuthShell({ mode }: { mode: "login" | "signup" }) {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="mt-3 text-muted-foreground"
             >
-              Run authenticity scans across images, video, audio, and URLs — powered by Observyx.
+              Run authenticity scans across images, video, audio, and URLs — powered by MAuthenticity.
             </motion.p>
           </div>
         </div>
@@ -194,7 +194,7 @@ export function AuthShell({ mode }: { mode: "login" | "signup" }) {
           <div className="absolute left-6 top-6">
             <Link
               to="/"
-              aria-label="Observyx home"
+              aria-label="MAuthenticity home"
               className="inline-flex w-fit touch-manipulation rounded-lg outline-none ring-offset-background transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring [-webkit-tap-highlight-color:transparent]"
             >
               <Logo />
@@ -324,7 +324,7 @@ export function AuthShell({ mode }: { mode: "login" | "signup" }) {
               </form>
 
               <p className="mt-6 text-center text-sm text-muted-foreground">
-                {isLogin ? "New to Observyx?" : "Already have an account?"}{" "}
+                {isLogin ? "New to MAuthenticity?" : "Already have an account?"}{" "}
                 <Link
                   to={isLogin ? "/signup" : "/login"}
                   className="font-medium text-foreground hover:text-primary"

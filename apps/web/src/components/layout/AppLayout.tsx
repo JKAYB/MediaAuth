@@ -163,7 +163,7 @@ export function AppLayout() {
   const meQuery = useMe();
   const isAuthenticated = !liveDemo && meQuery.isSuccess;
   const logoTo = isAuthenticated ? "/dashboard" : "/";
-  const logoAriaLabel = isAuthenticated ? "Go to dashboard" : "Observyx home";
+  const logoAriaLabel = isAuthenticated ? "Go to dashboard" : "MAuthenticity home";
   const logout = useLogout();
 
   const profile = useMemo(() => {

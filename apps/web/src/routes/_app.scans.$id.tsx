@@ -21,19 +21,19 @@ import { useMe } from "@/features/auth/hooks";
 import { getLiveDemoSnapshot, subscribeLiveDemo } from "@/lib/demo-mode";
 import { scans as demoScans, timeAgo, type Scan } from "@/lib/mock-data";
 import { downloadScanOriginal } from "@/lib/scan-media-download";
-import { formatFileSize, strictUploadPreviewKind } from "@/lib/scan-media";
+import { strictUploadPreviewKind } from "@/lib/scan-media";
 import { cn } from "@/lib/utils";
 import { debounce } from "lodash";
 import { ResolvedHeatmapTile } from "@/components/scan/ResolvedHeatmapTile";
 import { ArtifactViewButton } from "@/components/scan/ArtifactViewButton";
-import { retryScanById } from "@/lib/api";
-import { scanKeys } from "@/features/scan/queryKeys";
 import { formatMaybePercent, formatScorePercentage } from "@/lib/percentage";
 import { adaptScanProviders } from "@/features/scans/adapters/adaptScanProviders";
+import { aggregateScanResult } from "@/features/scans/adapters/aggregateScanResult";
+import { SectionHeader } from "@/components/ui-ext/SectionHeader";
 
 export const Route = createFileRoute("/_app/scans/$id")({
   head: () => ({
-    meta: [{ title: "Scan — Observyx" }],
+    meta: [{ title: "Scan — MAuthenticity" }],
   }),
   notFoundComponent: () => (
     <div className="mx-auto max-w-md py-20 text-center">
@@ -159,6 +159,7 @@ function ScanDetail() {
     !liveDemo && scan.canFetchMedia ? strictUploadPreviewKind(scan.mimeType) : undefined;
 
   const providerVM = adaptScanProviders(scan);
+  const aggregated = aggregateScanResult(scan);
   const canDownloadReports = liveDemo || (meQuery.data?.access?.has_paid_history ?? false);
   const providerTabs = providerVM.tabs;
   const resolvedActiveProvider =
@@ -172,10 +173,6 @@ function ScanDetail() {
     : null;
   const activeProviderData = activeProviderView ? activeProviderView.rawOutput : null;
   const activeProviderMeta = providerTabs.find((p) => p.id === resolvedActiveProvider) || null;
-  const isRealityDefenderProvider =
-    resolvedActiveProvider.startsWith("reality_defender") ||
-    resolvedActiveProvider.startsWith("real");
-  const isHiveProvider = resolvedActiveProvider.startsWith("hive");
   const providerMetadata =
     activeProviderView?.metadata.map((m) => ({ key: m.label, value: m.value })) || [];
   const providerTimeline = activeProviderView?.timeline || [];
@@ -187,25 +184,37 @@ function ScanDetail() {
     );
     return (activeProviderView.heatmaps || []).filter((h) => modelNames.has(h.modelName));
   })();
-  const hiveMainSafe = isHiveProvider
-    ? providerSignalGroups
-      .flatMap((g) => g.signals)
-      .filter((s) => s.tone === "success")
-      .sort((a, b) => b.score - a.score)[0] || null
-    : null;
+  const aggregatedStatus =
+    aggregated.verdict === "authentic"
+      ? "safe"
+      : aggregated.verdict === "manipulated"
+        ? "flagged"
+        : aggregated.verdict === "suspicious"
+          ? "suspicious"
+          : "pending";
+  const isInconclusive = aggregated.verdict === "inconclusive";
+  const topSummary = isInconclusive
+    ? "We could not verify this media due to insufficient detection data."
+    : aggregated.summary;
 
   const verdictColor =
-    scan.status === "safe"
+    aggregatedStatus === "safe"
       ? "from-success/30 to-success/0 ring-success/30 text-success"
-      : scan.status === "flagged"
+      : aggregatedStatus === "flagged"
         ? "from-destructive/30 to-destructive/0 ring-destructive/40 text-destructive"
-        : scan.status === "suspicious"
+        : aggregatedStatus === "suspicious"
           ? "from-warning/30 to-warning/0 ring-warning/40 text-warning"
           : "from-primary/30 to-primary/0 ring-primary/40 text-primary";
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-6xl space-y-5 overflow-x-hidden px-2 pb-28 sm:space-y-6 sm:px-4 sm:pb-12 md:px-6 md:pb-10">
-      <div className="flex min-w-0 flex-row items-center justify-between gap-2 sm:gap-4">
+      <SectionHeader
+        title="Scan Details"
+        description={
+          "View the details of the scan."
+        }
+      />
+      {/* <div className="flex min-w-0 flex-row items-center justify-between gap-2 sm:gap-4">
         <Link
           to="/scans"
           className="inline-flex min-w-0 flex-1 items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground sm:flex-initial sm:max-w-none"
@@ -213,209 +222,167 @@ function ScanDetail() {
           <ArrowLeft className="h-4 w-4 shrink-0" />
           <span className="min-w-0 truncate">Back to history</span>
         </Link>
-        <div className="flex shrink-0 flex-row items-center gap-2 sm:gap-2">
-          <button
-            type="button"
-            aria-label="Share"
-            className="inline-flex size-9 shrink-0 items-center justify-center gap-0 rounded-lg border border-border bg-card/60 text-sm hover:bg-card sm:h-9 sm:w-auto sm:min-w-0 sm:px-3 sm:gap-1.5"
-          >
-            <Share2 className="h-4 w-4 shrink-0" aria-hidden />
-            <span className="hidden sm:inline">Share</span>
-          </button>
-          <button
-            type="button"
-            aria-label="Export report"
-            disabled={exportBusy}
-            title={canDownloadReports ? "Export report" : "Upgrade required to download reports"}
-            onClick={() => {
-              void (async () => {
-                if (!scan || exportBusy) {
-                  return;
-                }
-                if (!canDownloadReports) {
-                  toast.error("Report download requires a paid plan");
-                  return;
-                }
-                setExportBusy(true);
-                try {
-                  const { exportScanReportPdf } = await import("@/lib/export-scan-report-pdf");
-                  await exportScanReportPdf(scan);
-                  toast.success("Report exported");
-                } catch {
-                  toast.error("Export failed");
-                } finally {
-                  setExportBusy(false);
-                }
-              })();
-            }}
-            className="inline-flex size-9 shrink-0 items-center justify-center gap-0 rounded-lg bg-gradient-to-br from-primary to-accent text-sm font-semibold text-primary-foreground shadow-[0_0_24px_-6px_var(--primary)] disabled:pointer-events-none disabled:opacity-60 sm:h-9 sm:w-auto sm:min-w-0 sm:px-3 sm:gap-1.5"
-          >
-            {exportBusy ? (
-              <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
-            ) : (
-              <Download className="h-4 w-4 shrink-0" aria-hidden />
-            )}
-            <span className="hidden sm:inline">Export report</span>
-          </button>
-        </div>
-      </div>
+      </div> */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
         className={cn(
-          "relative min-w-0 overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br p-3 backdrop-blur-xl elevated ring-1 sm:p-4",
-          verdictColor,
+          "relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br p-2 backdrop-blur-xl elevated ring-1 sm:p-4",
+          verdictColor, // Ensure this applies the subtle green/dark gradient from the design
         )}
       >
-        <div className="flex flex-col gap-3 md:flex-row md:items-stretch md:justify-between">
+        <div className="flex flex-col items-center gap-6 md:flex-row md:gap-10">
+          {/* Primary Visual: Confidence Ring moved to the start */}
+          <div className="flex shrink-0 items-center justify-center">
+            <ConfidenceRing
+              value={aggregated.confidence}
+              status={aggregatedStatus} />
+          </div>
 
-          {/* LEFT CONTENT */}
-          <div className="flex-1 min-w-0">
-            <div className="mb-1.5 flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center">
-              <div className="flex flex-wrap items-center gap-2">
-                <StatusBadge status={scan.status} />
-                {/* retry + loading stays same */}
-              </div>
-            </div>
-
-            {scan.rawStatus === "failed" && scan.lastError ? (
-              <p className="mt-1 max-w-full break-words rounded-md bg-destructive/12 px-2 py-1 text-xs text-destructive ring-1 ring-destructive/30">
-                {scan.lastError}
-              </p>
-            ) : null}
-
-            <h1 className="mt-1 break-words font-display text-base font-semibold leading-tight sm:text-xl md:text-2xl">
+          {/* Content Section */}
+          <div className="flex-1 text-center md:text-left">
+            <h1 className="font-display text-xl font-bold tracking-tight sm:text-4xl">
               {scan.title}
             </h1>
 
-            <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-              Scanned {timeAgo(scan.createdAt)} · {scan.kind.toUpperCase()} ·{" "}
-              {scan.modelCount ?? scan.detections.length} signals
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed opacity-90">
+              {topSummary}
             </p>
+
+            {/* Simplified Metadata Row with Icons */}
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-4 text-sm font-medium opacity-70 md:justify-start">
+              <span>{timeAgo(scan.createdAt)}</span>
+              <span className="h-1 w-1 rounded-full bg-current opacity-40" />
+              <div className="flex items-center gap-1.5">
+                {/* Add a simple Image Icon here if available */}
+                <span className="uppercase tracking-wider">{scan.kind}</span>
+              </div>
+              <span className="h-1 w-1 rounded-full bg-current opacity-40" />
+              <div className="flex items-center gap-1.5">
+                {/* Add a Signal Icon here */}
+                <span>{aggregated.topSignals.length} Signals</span>
+              </div>
+            </div>
           </div>
-
-          <div className="flex items-center justify-center md:justify-end md:pl-4">
-            <ConfidenceRing value={scan.confidence} status={scan.status} />
-
+          <div className="flex self-start items-start justify-end gap-2">
+            <button
+              type="button"
+              aria-label="Share"
+              className="inline-flex size-9 shrink-0 items-center justify-center gap-0 rounded-lg border border-border bg-card/60 text-sm hover:bg-card sm:h-9 sm:w-auto sm:min-w-0 sm:px-3 sm:gap-1.5"
+            >
+              <Share2 className="h-4 w-4 shrink-0" aria-hidden />
+            </button>
+            <button
+              type="button"
+              aria-label="Export report"
+              disabled={exportBusy}
+              title={canDownloadReports ? "Export report" : "Upgrade required to download reports"}
+              onClick={() => {
+                void (async () => {
+                  if (!scan || exportBusy) {
+                    return;
+                  }
+                  if (!canDownloadReports) {
+                    toast.error("Report download requires a paid plan");
+                    return;
+                  }
+                  setExportBusy(true);
+                  try {
+                    const { exportScanReportPdf } = await import("@/lib/export-scan-report-pdf");
+                    await exportScanReportPdf(scan);
+                    toast.success("Report exported");
+                  } catch {
+                    toast.error("Export failed");
+                  } finally {
+                    setExportBusy(false);
+                  }
+                })();
+              }}
+              className="inline-flex size-9 shrink-0 items-center justify-center gap-0 rounded-lg border border-border bg-card/60 text-sm hover:bg-card sm:h-9 sm:w-auto sm:min-w-0 sm:px-3 sm:gap-1.5"
+            >
+              {exportBusy ? (
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+              ) : (
+                <Download className="h-4 w-4 shrink-0" aria-hidden />
+              )}
+            </button>
           </div>
-
         </div>
       </motion.div>
-      {/* <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className={cn(
-          "relative min-w-0 overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br p-4 backdrop-blur-xl elevated ring-1 sm:p-6",
-          verdictColor,
-        )}
-      >
-        <div className="grid min-w-0 gap-4 sm:gap-6 md:grid-cols-[minmax(0,1fr),auto] md:items-center md:gap-6">
-          <div className="min-w-0">
-            <div className="mb-2 flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-              <div className="flex flex-wrap items-center gap-2">
-                <StatusBadge status={scan.status} />
-                {scan.rawStatus === "failed" && (
-                  <button
-                    type="button"
-                    disabled={retryBusy || liveDemo}
-                    onClick={() => {
-                      void (async () => {
-                        if (retryBusy || liveDemo) return;
-                        setRetryBusy(true);
-                        try {
-                          const response = await retryScanById(scan.id);
-                          await Promise.all([
-                            queryClient.invalidateQueries({ queryKey: scanKeys.all }),
-                            queryClient.invalidateQueries({ queryKey: scanKeys.detail(scan.id) }),
-                          ]);
-                          toast.success("Retry queued");
-                          await navigate({ to: "/scans/$id", params: { id: response.scan.id } });
-                        } catch (e) {
-                          toast.error(e instanceof Error ? e.message : "Retry failed");
-                        } finally {
-                          setRetryBusy(false);
-                        }
-                      })();
-                    }}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-warning/20 px-2.5 py-1.5 text-xs font-medium text-warning ring-1 ring-warning/30 transition hover:bg-warning/25 disabled:opacity-60"
-                  >
-                    {retryBusy ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <AlertTriangle className="h-3.5 w-3.5" />
-                    )}
-                    {retryBusy ? "Retrying..." : "Retry scan"}
-                  </button>
-                )}
-                {!liveDemo && rowQuery.isRefetching && scan.status === "pending" && (
-                  <span className="text-xs text-muted-foreground tabular-nums" aria-live="polite">
-                    Checking for results…
-                  </span>
-                )}
-              </div>
+      {!isInconclusive ? (
+        <div className="rounded-2xl border border-border/60 bg-card/60 p-4 backdrop-blur-xl elevated sm:p-5">
+          <div className="mb-3">
+            <div className="text-xs font-semibold uppercase tracking-wide text-foreground">
+              How this result was determined
             </div>
-            {scan.rawStatus === "failed" && scan.lastError ? (
-              <p className="mt-1.5 max-w-full break-words rounded-md bg-destructive/12 px-2.5 py-1.5 text-xs text-destructive ring-1 ring-destructive/30">
-                {scan.lastError}
-              </p>
-            ) : null}
-            <h1 className="break-words font-display text-lg font-semibold leading-tight tracking-tight sm:text-2xl md:text-3xl">
-              {scan.title}
-            </h1>
-            <p className="mt-1.5 max-w-full text-xs leading-relaxed text-muted-foreground sm:text-sm">
-              Scanned {timeAgo(scan.createdAt)} · {scan.kind.toUpperCase()} ·{" "}
-              {scan.modelCount ?? scan.detections.length} signals
+            <p className="mt-2 text-xs text-muted-foreground">
+              This verdict is based on combined analysis from multiple detection providers, evaluating signals of AI generation and manipulation.
             </p>
           </div>
-          <div className="flex justify-center pt-1 md:block md:justify-self-end md:pt-0">
-            <div className="origin-center scale-[0.9] sm:scale-100">
-              <ConfidenceRing value={scan.confidence} status={scan.status} />
-            </div>
-          </div>
-        </div>
-      </motion.div> */}
 
-      <div className="rounded-2xl border border-border/60 bg-card/60 p-4 backdrop-blur-xl elevated sm:p-5">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Provider Results
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Switching providers updates all provider-specific sections below.
-            </div>
-          </div>
-          {activeProviderMeta ? (
+          <div className="flex items-center justify-start text-xs py-2">
+            <span className="font-semibold text-xs tracking-wide text-muted-foreground">
+              Provider Agreement -
+            </span>
+
             <span
               className={cn(
-                "rounded px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ring-1",
-                providerExecutionStatusClass(activeProviderMeta.status),
+                "pl-2 font-bold capitalize",
+                aggregated.agreement === "strong"
+                  ? "text-success"
+                  : aggregated.agreement === "mixed"
+                    ? "text-warning"
+                    : "text-primary"
               )}
             >
-              {activeProviderMeta.status}
+              {aggregated.agreement === "strong"
+                ? "Strong"
+                : aggregated.agreement === "mixed"
+                  ? "Mixed"
+                  : "Single"}
             </span>
-          ) : null}
+          </div>
+
+          <div className="space-y-2">
+            {aggregated.providerFindings.map((p) => (
+              <div
+                key={p.providerId}
+                className="rounded-lg border border-border bg-background/40 px-3 py-2"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-xs font-medium text-muted-foreground">
+                    Provider - {p.providerName}
+                  </div>
+
+                  <span
+                    className={cn(
+                      "rounded-full px-2 py-0.5 text-[11px] font-medium capitalize",
+                      p.verdict === "authentic"
+                        ? "bg-success/15 text-success"
+                        : p.verdict === "suspicious"
+                          ? "bg-warning/15 text-warning"
+                          : p.verdict === "manipulated"
+                            ? "bg-destructive/15 text-destructive"
+                            : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {p.verdict}
+                  </span>
+                </div>
+
+                <div className="mt-1 text-xs text-muted-foreground">
+                  AI/manipulation signal:{" "}
+                  <span className="font-medium text-foreground">{p.aiScore}%</span>
+                  {" · "}
+                  Authenticity indication:{" "}
+                  <span className="font-medium text-foreground">{p.authenticScore}%</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {providerTabs.map((provider) => (
-            <button
-              key={provider.id}
-              type="button"
-              onClick={() => setActiveProvider(provider.id)}
-              className={cn(
-                "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition",
-                resolvedActiveProvider === provider.id
-                  ? "border-primary/60 bg-primary/15 text-foreground"
-                  : "border-border bg-card/50 text-muted-foreground",
-              )}
-            >
-              <span>{provider.name}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+      ) : null}
+
       <div className="grid min-w-0 gap-5 sm:gap-6 lg:grid-cols-3">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -429,7 +396,7 @@ function ScanDetail() {
 
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
-              {scan.status === "flagged" ? (
+              {aggregated.verdict === "manipulated" ? (
                 <div className="inline-flex items-center gap-1.5 rounded-md bg-destructive/20 px-2.5 py-1.5 text-xs text-destructive ring-1 ring-destructive/30 backdrop-blur">
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                   <span className="min-w-0 break-words">Likely AI-generated or manipulated</span>
@@ -480,68 +447,122 @@ function ScanDetail() {
           transition={{ duration: 0.5, delay: 0.1 }}
           className="min-w-0 rounded-2xl border border-border/60 bg-card/60 p-4 backdrop-blur-xl elevated sm:p-5"
         >
-          <div className="mb-3.5 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            <ListChecks className="h-3.5 w-3.5 shrink-0" /> Signals
+          <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            <ListChecks className="h-3.5 w-3.5 shrink-0" />
+            Advanced signals
           </div>
-          {providerTabs.length > 0 ? (
-            <div className="space-y-3">
-              {isHiveProvider ? (
-                <div className="space-y-3">
-                  {/* {hiveMainSafe ? (
-                    <div className="rounded-md border border-success/40 bg-success/10 px-2.5 py-2 text-xs text-success">
-                      <span className="font-semibold uppercase tracking-wide">Authentic</span>
-                      <span className="ml-2">
-                        {hiveMainSafe.label} ({hiveMainSafe.displayValue})
-                      </span>
-                    </div>
-                  ) : null} */}
-                  {providerSignalGroups.map((group) => (
-                    <div key={group.id} className="space-y-2">
-                      <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        {group.title}
+
+          {aggregated.topSignals.length > 0 ? (
+            <>
+              <div className="space-y-3  max-h-90 overflow-y-auto p-3 border rounded-lg">
+                {aggregated.topSignals.map((s, i) => (
+                  <div
+                    key={`${s.providerId}-${s.label}-${i}`}
+                    className="rounded-lg border border-border bg-background/40 p-3"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0 break-words text-sm font-medium text-foreground">
+                        {s.label}
                       </div>
-                      <SignalList
-                        detections={group.signals.map((s) => ({
-                          label: s.label,
-                          score: s.score,
-                          tone: s.tone,
-                        }))}
+
+                      <div className="shrink-0 font-mono text-xs text-muted-foreground">
+                        {s.score}%
+                      </div>
+                    </div>
+
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-primary/70"
+                        style={{ width: `${s.score}%` }}
                       />
                     </div>
-                  ))}
-                  {providerSignalGroups.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No data available for this provider
-                    </p>
-                  ) : null}
-                </div>
-              ) : isRealityDefenderProvider ? (
-                providerSignalGroups.length > 0 ? (
-                  <SignalList
-                    detections={providerSignalGroups
-                      .flatMap((g) => g.signals)
-                      .map((s) => ({ label: s.label, score: s.score, tone: s.tone }))}
-                  />
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No data available for this provider
-                  </p>
-                )
-              ) : (
-                <p className="text-sm text-muted-foreground">No data available for this provider</p>
-              )}
-            </div>
+
+                    <div className="mt-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {s.severity === "high"
+                        ? "High model response"
+                        : s.severity === "medium"
+                          ? "Moderate model response"
+                          : "Low model response"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+                These signals show how strongly each model responded. They do not indicate risk on their own or override the final aggregated result.
+              </p>
+            </>
           ) : (
-            <p className="max-w-full whitespace-normal break-words text-sm leading-relaxed text-muted-foreground">
-              No model signals available for this scan.
+            <p className="text-sm text-muted-foreground">
+              No advanced signals available.
             </p>
           )}
         </motion.div>
       </div>
 
-
+      <div className="rounded-2xl border border-border/60 bg-card/60 p-4 backdrop-blur-xl elevated sm:p-5">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Provider Results
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Switching providers updates all provider-specific sections below.
+            </div>
+          </div>
+          {activeProviderMeta ? (
+            <span
+              className={cn(
+                "rounded px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ring-1",
+                providerExecutionStatusClass(activeProviderMeta.status),
+              )}
+            >
+              {activeProviderMeta.status}
+            </span>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {providerTabs.map((provider) => (
+            <button
+              key={provider.id}
+              type="button"
+              onClick={() => setActiveProvider(provider.id)}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition",
+                resolvedActiveProvider === provider.id
+                  ? "border-primary/60 bg-primary/15 text-foreground"
+                  : "border-border bg-card/50 text-muted-foreground",
+              )}
+            >
+              <span>{provider.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="min-w-0 space-y-4 sm:space-y-4">
-        <Accordion title="Metadata" icon={FileText} defaultOpen>
+        <Accordion title="Provider signals" icon={ListChecks} defaultOpen>
+          {providerSignalGroups.length > 0 ? (
+            <div className="space-y-3">
+              {providerSignalGroups.map((group) => (
+                <div key={group.id} className="space-y-2">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {group.title}
+                  </div>
+                  <SignalList
+                    detections={group.signals.map((s) => ({
+                      label: s.label,
+                      score: s.score,
+                      tone: s.tone,
+                    }))}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Not available for this provider</p>
+          )}
+        </Accordion>
+        <Accordion title="Metadata" icon={FileText}>
           {activeProviderView?.sections.showMetadata && providerMetadata.length > 0 ? (
             <dl className="grid min-w-0 gap-3 sm:grid-cols-2">
               {providerMetadata.map((m) => (
@@ -676,7 +697,7 @@ function ScanDetail() {
           ) : activeProviderView?.sections.showHeatmaps && scan.heatmapsExpired ? (
             <p className="text-sm text-muted-foreground">
               Heatmap previews are no longer available (secure vendor links expired). New scans
-              store heatmaps in Observyx so previews keep working.
+              store heatmaps in MAuthenticity so previews keep working.
             </p>
           ) : (
             <p className="text-sm text-muted-foreground">Not available for this provider</p>
@@ -801,53 +822,6 @@ function ScanDetail() {
             <p className="text-sm text-muted-foreground">No attempts available.</p>
           )}
         </Accordion>
-        {/* <Accordion title="Attempt history" icon={ListChecks}>
-          <div className="mb-2 text-xs text-muted-foreground">
-            Total retries:{" "}
-            <span className="font-medium text-foreground">{scan.retryCount ?? 0}</span>
-          </div>
-          {scan.attempts && scan.attempts.length > 0 ? (
-            <ol className="space-y-2">
-              {scan.attempts.map((attempt, idx, list) => {
-                const latest = idx === list.length - 1;
-                const attemptLabel = attempt.attemptNumber === 1 ? "Original" : "Retry";
-                return (
-                  <li
-                    key={attempt.id}
-                    className={cn(
-                      "flex items-center justify-between gap-3 rounded-md border px-3 py-2",
-                      latest
-                        ? "border-primary/40 bg-primary/10 ring-1 ring-primary/25"
-                        : "border-border bg-input/30",
-                    )}
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <div className="text-sm font-medium">Attempt {attempt.attemptNumber}</div>
-                        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground ring-1 ring-border/70">
-                          {attemptLabel}
-                        </span>
-                        {latest ? (
-                          <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary ring-1 ring-primary/30">
-                            Latest
-                          </span>
-                        ) : null}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {attempt.createdAt ? timeAgo(attempt.createdAt) : "—"} · {attempt.status}
-                      </div>
-                    </div>
-                    <div className="shrink-0">
-                      <StatusBadge status={toUiStatus(attempt.status)} />
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
-          ) : (
-            <p className="text-sm text-muted-foreground">No attempts available.</p>
-          )}
-        </Accordion> */}
         <Accordion title="Raw output (JSON)" icon={FileText}>
           {activeProviderView?.sections.showRawOutput ? (
             <pre className="max-h-60 max-w-full overflow-x-auto overflow-y-auto rounded-lg border border-border bg-background/60 p-3 font-mono text-[10px] leading-relaxed sm:max-h-72 sm:p-4 sm:text-xs">

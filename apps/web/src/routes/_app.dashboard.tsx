@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 import { getEffectivePlan } from "@/features/billing/getEffectivePlan";
 
 export const Route = createFileRoute("/_app/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard — Observyx" }] }),
+  head: () => ({ meta: [{ title: "Dashboard — MAuthenticity" }] }),
   component: Dashboard,
 });
 

@@ -3,7 +3,7 @@ import { ProfileAccountCard } from "@/components/profile/ProfileSection";
 import { SectionHeader } from "@/components/ui-ext/SectionHeader";
 
 export const Route = createFileRoute("/_app/profile")({
-  head: () => ({ meta: [{ title: "Profile — Observyx" }] }),
+  head: () => ({ meta: [{ title: "Profile — MAuthenticity" }] }),
   component: ProfilePage,
 });
 

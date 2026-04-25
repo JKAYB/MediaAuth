@@ -8,7 +8,7 @@ export const Route = createFileRoute("/accept-invite")({
   validateSearch: (raw: Record<string, unknown>): { token?: string } => ({
     token: typeof raw.token === "string" ? raw.token : undefined,
   }),
-  head: () => ({ meta: [{ title: "Accept invitation — Observyx" }] }),
+  head: () => ({ meta: [{ title: "Accept invitation — MAuthenticity" }] }),
   component: AcceptInvitePage,
 });
 
